@@ -1,0 +1,34 @@
+[
+  {
+    "id": "FACT-001",
+    "category": "database",
+    "statement": "red_packet 表已存在，含 expire_at datetime 字段",
+    "source": { "type": "sql", "path": "sql/red_packet.sql", "line": 18 },
+    "confidence": 1.0,
+    "status": "VERIFIED"
+  },
+  {
+    "id": "FACT-002",
+    "category": "database",
+    "statement": "red_packet.status 为 tinyint，status=2 已定义为 STOPPED 并直接透出给客户端",
+    "source": { "type": "code", "path": "src/main/java/com/x/RedPacket.java", "line": 42 },
+    "confidence": 1.0,
+    "status": "VERIFIED"
+  },
+  {
+    "id": "FACT-003",
+    "category": "api",
+    "statement": "POST /api/red-packets/{id}/receive 已存在，按 (user_id, packet_id) 唯一索引防重",
+    "source": { "type": "code", "path": "src/main/java/com/x/RedPacketController.java", "line": 88 },
+    "confidence": 1.0,
+    "status": "VERIFIED"
+  },
+  {
+    "id": "FACT-004",
+    "category": "test",
+    "statement": "RedPacketServiceTest 覆盖余额不足与重复领取分支",
+    "source": { "type": "test", "path": "src/test/java/com/x/RedPacketServiceTest.java", "line": 55 },
+    "confidence": 1.0,
+    "status": "VERIFIED"
+  }
+]

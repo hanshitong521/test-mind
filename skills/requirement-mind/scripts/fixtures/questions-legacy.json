@@ -1,0 +1,24 @@
+[
+  {
+    "id": "Q-001",
+    "topic": "expiration_boundary",
+    "question": "红包到期与领取请求同时发生时，以哪个时间为准？",
+    "reason": "影响并发判断与事务边界",
+    "priority": "BLOCKING",
+    "options": ["REQUEST_RECEIVED_AT", "TX_COMMIT_AT", "STRICT_EXPIRE"],
+    "status": "OPEN"
+  },
+  {
+    "id": "Q-002",
+    "topic": "idempotency",
+    "question": "重复领取请求如何处理？",
+    "reason": "影响幂等与资金",
+    "priority": "BLOCKING",
+    "options": [
+      "A. 同一用户仅成功一次",
+      "B. 允许重复入账",
+      "C. 返回上次结果"
+    ],
+    "status": "ANSWERED"
+  }
+]

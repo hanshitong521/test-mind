@@ -1,0 +1,22 @@
+[
+  {
+    "id": "CH-001",
+    "claim": "规格声称现有唯一索引可完全防止重复领取",
+    "challenge": "唯一索引仅覆盖 (user_id, packet_id)；若幂等口径含 device/activity 维度则不覆盖",
+    "evidence": ["sql/red_packet.sql:18"],
+    "counterexample": "同用户换设备重试领取",
+    "validation": "核对唯一索引列与 Q-002 冻结的幂等口径是否一致",
+    "severity": "BLOCKING",
+    "status": "PENDING_VALIDATION"
+  },
+  {
+    "id": "CH-002",
+    "claim": "需要引入分布式锁防止并发超发",
+    "challenge": "当前为单实例部署，无跨实例竞争",
+    "evidence": ["docker-compose.yml:8"],
+    "counterexample": "扩容为多实例后需重审",
+    "validation": "核对部署拓扑",
+    "severity": "MEDIUM",
+    "status": "REFUTED"
+  }
+]

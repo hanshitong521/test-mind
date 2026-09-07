@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+reports/
+target/
+.hypothesis/
+.schemathesis/
+examples/red-packet/*.db
+*.log
+# 85 个第三方 jar 共 91M，由 tools/karate/pom.xml 可复现：
+#   mvn -f tools/karate/pom.xml dependency:copy-dependencies -DoutputDirectory=lib
+tools/karate/lib/

@@ -1,0 +1,163 @@
+[
+  {
+    "id": "Q-001",
+    "topic": "expiration_boundary",
+    "question": "红包到期与领取请求同时发生时，以哪个时间为准？",
+    "reason": "影响并发判断与事务边界",
+    "priority": "BLOCKING",
+    "options": [
+      "A. 请求到达服务端时间",
+      "B. 数据库事务提交时间",
+      "C. 到期时间一到立即拒绝",
+      "D. 沿用现有业务规则（注明出处）"
+    ],
+    "recommended_option": "A",
+    "recommendation_reason": "FACT-003 现有防重在请求路径实时执行；到期判定放同一入口语义一致，避免引入第二时间源",
+    "authority": "USER_ONLY",
+    "value": "HIGH",
+    "status": "OPEN"
+  },
+  {
+    "id": "Q-002",
+    "topic": "idempotency_scope",
+    "question": "幂等判定以哪个身份键为准？",
+    "reason": "决定重复领取的判定口径与唯一索引是否需要变更",
+    "priority": "BLOCKING",
+    "options": [
+      "A. user_id",
+      "B. user_id + device_id",
+      "C. user_id + activity_id",
+      "D. 沿用现有唯一约束口径（FACT-003）"
+    ],
+    "recommended_option": "D",
+    "recommendation_reason": "FACT-003 唯一索引 (user_id, packet_id) 已在生产生效，改键需要数据迁移",
+    "authority": "USER_ONLY",
+    "value": "HIGH",
+    "status": "OPEN"
+  },
+  {
+    "id": "Q-003",
+    "topic": "stock_oversell",
+    "question": "并发下剩余份数扣减采用哪种方式？",
+    "reason": "决定超发风险的控制手段",
+    "priority": "BLOCKING",
+    "options": [
+      "A. 数据库乐观锁（version 字段）",
+      "B. 悲观行锁 SELECT ... FOR UPDATE",
+      "C. Redis 预扣 + 异步落库"
+    ],
+    "recommended_option": "A",
+    "recommendation_reason": "单表行级冲突可控且 FACT-004 既有测试可覆盖；C 引入新组件，无证据支持必要性",
+    "authority": "TECHNICAL",
+    "value": "HIGH",
+    "status": "OPEN"
+  },
+  {
+    "id": "Q-004",
+    "topic": "expired_refund",
+    "question": "红包过期后剩余金额如何处理？",
+    "reason": "决定状态机与账务动作",
+    "priority": "BLOCKING",
+    "options": [
+      "A. 自动原路退回",
+      "B. 保持冻结，人工处理",
+      "C. 转入账户余额"
+    ],
+    "recommended_option": "A",
+    "recommendation_reason": "CON-002 运营决策记录（docs/adr/012.md）支持原路退回",
+    "authority": "USER_ONLY",
+    "value": "HIGH",
+    "status": "ANSWERED"
+  },
+  {
+    "id": "Q-005",
+    "topic": "api_compatibility",
+    "question": "老客户端遇到未知 status 枚举值时的降级要求是什么？",
+    "reason": "决定新增 EXPIRED 枚举是否会影响线上老版本",
+    "priority": "IMPORTANT",
+    "options": [
+      "A. 客户端把未知枚举降级为「已结束」展示，服务端照常新增",
+      "B. 客户端已强制升级，无需考虑"
+    ],
+    "recommended_option": "A",
+    "recommendation_reason": "FACT-002 status 直接透出给客户端；降级展示成本远低于放弃兼容",
+    "authority": "USER_ONLY",
+    "value": "MEDIUM",
+    "status": "OPEN"
+  },
+  {
+    "id": "Q-006",
+    "topic": "observability",
+    "question": "过期收敛任务失败时的可观测要求？",
+    "reason": "状态收敛是正确性兜底路径，失败不可静默",
+    "priority": "IMPORTANT",
+    "options": [
+      "A. 仅错误日志",
+      "B. 错误日志 + 告警埋点"
+    ],
+    "recommended_option": "B",
+    "recommendation_reason": "收敛任务静默失败会导致状态长期不一致；告警埋点为纯工程实现",
+    "authority": "TECHNICAL",
+    "value": "MEDIUM",
+    "status": "OPEN"
+  },
+  {
+    "id": "Q-007",
+    "topic": "observability",
+    "question": "领取接口的失败日志要求？",
+    "reason": "影响排障效率",
+    "priority": "IMPORTANT",
+    "options": [
+      "A. 仅错误日志",
+      "B. 错误日志 + 告警埋点"
+    ],
+    "recommended_option": "B",
+    "recommendation_reason": "资金相关接口失败需要及时感知",
+    "authority": "TECHNICAL",
+    "value": "MEDIUM",
+    "status": "ANSWERED"
+  },
+  {
+    "id": "Q-008",
+    "topic": "default_expiry_days",
+    "question": "默认限时时长取多少？",
+    "reason": "不影响核心开发，可用默认值",
+    "priority": "OPTIONAL",
+    "options": ["A. 24 小时", "B. 72 小时"],
+    "recommended_option": "A",
+    "recommendation_reason": "与运营活动常见配置一致",
+    "authority": "USER_ONLY",
+    "value": "LOW",
+    "status": "OPEN"
+  },
+  {
+    "id": "Q-009",
+    "topic": "time_source",
+    "question": "到期判定以哪个时钟为准？",
+    "reason": "多实例时钟漂移会导致边界判定不一致",
+    "priority": "BLOCKING",
+    "options": [
+      "A. 应用服务器时钟",
+      "B. 数据库当前时间",
+      "C. 统一时间服务"
+    ],
+    "recommended_option": "B",
+    "recommendation_reason": "FACT-001 判定字段在库表，SQL 比较可下推数据库时钟，避免应用时钟漂移",
+    "authority": "TECHNICAL",
+    "value": "HIGH",
+    "status": "OPEN"
+  },
+  {
+    "id": "Q-010",
+    "topic": "copywriting",
+    "question": "过期后领取入口文案？",
+    "reason": "不影响核心开发，可用默认值",
+    "priority": "OPTIONAL",
+    "options": ["A. 活动已结束", "B. 红包已过期"],
+    "recommended_option": "A",
+    "recommendation_reason": "通用文案，无需用户裁决",
+    "authority": "USER_ONLY",
+    "value": "LOW",
+    "status": "OPEN"
+  }
+]

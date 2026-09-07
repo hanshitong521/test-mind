@@ -1,0 +1,11 @@
+[
+  {
+    "id": "DEC-002",
+    "question_id": "Q-002",
+    "decision": "C",
+    "topic": "idempotency",
+    "source": "USER",
+    "status": "FROZEN",
+    "created_at": "2026-08-30T12:00:00+08:00"
+  }
+]

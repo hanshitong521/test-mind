@@ -1,0 +1,21 @@
+[
+  {
+    "id": "DEC-001",
+    "question_id": "Q-004",
+    "decision": "自动原路退回",
+    "topic": "expired_refund",
+    "source": "USER",
+    "status": "FROZEN",
+    "impact": ["red_packet 状态收敛任务", "退款模块触发点"],
+    "created_at": "2026-09-04T10:00:00.000Z"
+  },
+  {
+    "id": "DEC-002",
+    "question_id": "Q-007",
+    "decision": "错误日志 + 告警埋点",
+    "topic": "observability",
+    "source": "USER",
+    "status": "FROZEN",
+    "created_at": "2026-09-04T10:05:00.000Z"
+  }
+]

@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "goal": "业务测试 Agent：证据驱动、未执行无 PASS",
+  "completed": [],
+  "current": "对接目标项目 SUT + 跑 final_gate",
+  "constraints": [
+    "仅 local/test 环境做故障注入",
+    "不为过测改 expected"
+  ],
+  "blocked": [],
+  "rejected": [],
+  "links": {},
+  "updated": "2026-09-04"
+}

@@ -1,0 +1,5 @@
+{
+  "requirement": "给红包增加限时领取（expire_at 到达后不可领取）",
+  "phase": "GRILLING",
+  "updated_at": "2026-09-05T10:00:00.000Z"
+}

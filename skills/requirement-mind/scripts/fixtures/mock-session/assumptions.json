@@ -1,0 +1,23 @@
+[
+  {
+    "id": "ASM-001",
+    "statement": "假设并发领取与既有库存扣减共用同一事务模板，无需独立事务边界",
+    "risk": "HIGH",
+    "source": "MODEL_INFERENCE",
+    "status": "UNVERIFIED"
+  },
+  {
+    "id": "ASM-002",
+    "statement": "假设老客户端遇到未知 status 枚举值会静默忽略",
+    "risk": "MEDIUM",
+    "source": "MODEL_INFERENCE",
+    "status": "UNVERIFIED"
+  },
+  {
+    "id": "ASM-003",
+    "statement": "假设过期文案仅需中文",
+    "risk": "LOW",
+    "source": "MODEL_INFERENCE",
+    "status": "RESOLVED"
+  }
+]

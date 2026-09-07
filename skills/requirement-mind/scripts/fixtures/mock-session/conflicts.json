@@ -1,0 +1,17 @@
+[
+  {
+    "id": "CON-001",
+    "left": "需求草案：将 status=2 复用为「已过期」",
+    "right": "代码现状：RedPacket.java:42 中 status=2 已定义为 STOPPED",
+    "severity": "BLOCKING",
+    "status": "OPEN"
+  },
+  {
+    "id": "CON-002",
+    "left": "旧 PRD：红包过期后金额留存，不支持退款",
+    "right": "docs/adr/012.md：2026-07 运营已确认支持原路退回",
+    "severity": "IMPORTANT",
+    "status": "RESOLVED",
+    "resolution_decision_id": "DEC-001"
+  }
+]
