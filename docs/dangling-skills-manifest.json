@@ -1,0 +1,229 @@
+{
+ "generated": "2026-09-08 00:44:57",
+ "note": ".qoder-cn/skills junctions whose target no longer exists. Removed because a dangling junction is a skill with no content. Restore any subset with restore_dangling_skills.py.",
+ "count": 37,
+ "entries": [
+  {
+   "name": "ai-verify",
+   "dead_target": "E:\\AAAAAA\\ai-restriction-document\\3、本人编程文档测试\\skills\\ai-verify",
+   "recoverable_from": null,
+   "status": "source-gone"
+  },
+  {
+   "name": "ask-matt",
+   "dead_target": "C:\\Users\\Administrator\\.agents\\skills\\ask-matt",
+   "recoverable_from": null,
+   "status": "source-gone"
+  },
+  {
+   "name": "claude-handoff",
+   "dead_target": "C:\\Users\\Administrator\\.agents\\skills\\claude-handoff",
+   "recoverable_from": null,
+   "status": "source-gone"
+  },
+  {
+   "name": "code-review",
+   "dead_target": "C:\\Users\\Administrator\\.agents\\skills\\code-review",
+   "recoverable_from": "C:\\Users\\Administrator\\.agents\\skills.off-token-tax-20260830\\code-review",
+   "status": "parked-on-20260830"
+  },
+  {
+   "name": "codebase-design",
+   "dead_target": "C:\\Users\\Administrator\\.agents\\skills\\codebase-design",
+   "recoverable_from": "C:\\Users\\Administrator\\.agents\\skills.off-token-tax-20260830\\codebase-design",
+   "status": "parked-on-20260830"
+  },
+  {
+   "name": "diagnosing-bugs",
+   "dead_target": "C:\\Users\\Administrator\\.agents\\skills\\diagnosing-bugs",
+   "recoverable_from": "C:\\Users\\Administrator\\.agents\\skills.off-token-tax-20260830\\diagnosing-bugs",
+   "status": "parked-on-20260830"
+  },
+  {
+   "name": "domain-modeling",
+   "dead_target": "C:\\Users\\Administrator\\.agents\\skills\\domain-modeling",
+   "recoverable_from": "C:\\Users\\Administrator\\.agents\\skills.off-token-tax-20260830\\domain-modeling",
+   "status": "parked-on-20260830"
+  },
+  {
+   "name": "git-guardrails-claude-code",
+   "dead_target": "C:\\Users\\Administrator\\.agents\\skills\\git-guardrails-claude-code",
+   "recoverable_from": "C:\\Users\\Administrator\\.agents\\skills.off-token-tax-20260830\\git-guardrails-claude-code",
+   "status": "parked-on-20260830"
+  },
+  {
+   "name": "grill-me",
+   "dead_target": "C:\\Users\\Administrator\\.agents\\skills\\grill-me",
+   "recoverable_from": "C:\\Users\\Administrator\\.agents\\skills.off-token-tax-20260830\\grill-me",
+   "status": "parked-on-20260830"
+  },
+  {
+   "name": "grill-with-docs",
+   "dead_target": "C:\\Users\\Administrator\\.agents\\skills\\grill-with-docs",
+   "recoverable_from": "C:\\Users\\Administrator\\.agents\\skills.off-token-tax-20260830\\grill-with-docs",
+   "status": "parked-on-20260830"
+  },
+  {
+   "name": "grilling",
+   "dead_target": "C:\\Users\\Administrator\\.agents\\skills\\grilling",
+   "recoverable_from": "C:\\Users\\Administrator\\.agents\\skills.off-token-tax-20260830\\grilling",
+   "status": "parked-on-20260830"
+  },
+  {
+   "name": "handoff",
+   "dead_target": "C:\\Users\\Administrator\\.agents\\skills\\handoff",
+   "recoverable_from": "C:\\Users\\Administrator\\.agents\\skills.off-token-tax-20260830\\handoff",
+   "status": "parked-on-20260830"
+  },
+  {
+   "name": "implement",
+   "dead_target": "C:\\Users\\Administrator\\.agents\\skills\\implement",
+   "recoverable_from": "C:\\Users\\Administrator\\.agents\\skills.off-token-tax-20260830\\implement",
+   "status": "parked-on-20260830"
+  },
+  {
+   "name": "improve-codebase-architecture",
+   "dead_target": "C:\\Users\\Administrator\\.agents\\skills\\improve-codebase-architecture",
+   "recoverable_from": "C:\\Users\\Administrator\\.agents\\skills.off-token-tax-20260830\\improve-codebase-architecture",
+   "status": "parked-on-20260830"
+  },
+  {
+   "name": "loop-me",
+   "dead_target": "C:\\Users\\Administrator\\.agents\\skills\\loop-me",
+   "recoverable_from": null,
+   "status": "source-gone"
+  },
+  {
+   "name": "migrate-to-shoehorn",
+   "dead_target": "C:\\Users\\Administrator\\.agents\\skills\\migrate-to-shoehorn",
+   "recoverable_from": "C:\\Users\\Administrator\\.agents\\skills.off-token-tax-20260830\\migrate-to-shoehorn",
+   "status": "parked-on-20260830"
+  },
+  {
+   "name": "prototype",
+   "dead_target": "C:\\Users\\Administrator\\.agents\\skills\\prototype",
+   "recoverable_from": "C:\\Users\\Administrator\\.agents\\skills.off-token-tax-20260830\\prototype",
+   "status": "parked-on-20260830"
+  },
+  {
+   "name": "research",
+   "dead_target": "C:\\Users\\Administrator\\.agents\\skills\\research",
+   "recoverable_from": "C:\\Users\\Administrator\\.agents\\skills.off-token-tax-20260830\\research",
+   "status": "parked-on-20260830"
+  },
+  {
+   "name": "resolving-merge-conflicts",
+   "dead_target": "C:\\Users\\Administrator\\.agents\\skills\\resolving-merge-conflicts",
+   "recoverable_from": "C:\\Users\\Administrator\\.agents\\skills.off-token-tax-20260830\\resolving-merge-conflicts",
+   "status": "parked-on-20260830"
+  },
+  {
+   "name": "scaffold-exercises",
+   "dead_target": "C:\\Users\\Administrator\\.agents\\skills\\scaffold-exercises",
+   "recoverable_from": "C:\\Users\\Administrator\\.agents\\skills.off-token-tax-20260830\\scaffold-exercises",
+   "status": "parked-on-20260830"
+  },
+  {
+   "name": "setup-matt-pocock-skills",
+   "dead_target": "C:\\Users\\Administrator\\.agents\\skills\\setup-matt-pocock-skills",
+   "recoverable_from": "C:\\Users\\Administrator\\.agents\\skills.off-token-tax-20260830\\setup-matt-pocock-skills",
+   "status": "parked-on-20260830"
+  },
+  {
+   "name": "setup-pre-commit",
+   "dead_target": "C:\\Users\\Administrator\\.agents\\skills\\setup-pre-commit",
+   "recoverable_from": "C:\\Users\\Administrator\\.agents\\skills.off-token-tax-20260830\\setup-pre-commit",
+   "status": "parked-on-20260830"
+  },
+  {
+   "name": "setup-ts-deep-modules",
+   "dead_target": "C:\\Users\\Administrator\\.agents\\skills\\setup-ts-deep-modules",
+   "recoverable_from": null,
+   "status": "source-gone"
+  },
+  {
+   "name": "skill-meta",
+   "dead_target": "E:\\AAAAAA\\ai-restriction-document\\3、本人编程文档测试\\skills\\skill-meta",
+   "recoverable_from": null,
+   "status": "source-gone"
+  },
+  {
+   "name": "tdd",
+   "dead_target": "C:\\Users\\Administrator\\.agents\\skills\\tdd",
+   "recoverable_from": "C:\\Users\\Administrator\\.agents\\skills.off-token-tax-20260830\\tdd",
+   "status": "parked-on-20260830"
+  },
+  {
+   "name": "teach",
+   "dead_target": "C:\\Users\\Administrator\\.agents\\skills\\teach",
+   "recoverable_from": "C:\\Users\\Administrator\\.agents\\skills.off-token-tax-20260830\\teach",
+   "status": "parked-on-20260830"
+  },
+  {
+   "name": "to-questionnaire",
+   "dead_target": "C:\\Users\\Administrator\\.agents\\skills\\to-questionnaire",
+   "recoverable_from": "C:\\Users\\Administrator\\.agents\\skills.off-token-tax-20260830\\to-questionnaire",
+   "status": "parked-on-20260830"
+  },
+  {
+   "name": "to-spec",
+   "dead_target": "C:\\Users\\Administrator\\.agents\\skills\\to-spec",
+   "recoverable_from": "C:\\Users\\Administrator\\.agents\\skills.off-token-tax-20260830\\to-spec",
+   "status": "parked-on-20260830"
+  },
+  {
+   "name": "to-tickets",
+   "dead_target": "C:\\Users\\Administrator\\.agents\\skills\\to-tickets",
+   "recoverable_from": "C:\\Users\\Administrator\\.agents\\skills.off-token-tax-20260830\\to-tickets",
+   "status": "parked-on-20260830"
+  },
+  {
+   "name": "triage",
+   "dead_target": "C:\\Users\\Administrator\\.agents\\skills\\triage",
+   "recoverable_from": "C:\\Users\\Administrator\\.agents\\skills.off-token-tax-20260830\\triage",
+   "status": "parked-on-20260830"
+  },
+  {
+   "name": "wait-what",
+   "dead_target": "C:\\Users\\Administrator\\.agents\\skills\\wait-what",
+   "recoverable_from": "C:\\Users\\Administrator\\.agents\\skills.off-token-tax-20260830\\wait-what",
+   "status": "parked-on-20260830"
+  },
+  {
+   "name": "wayfinder",
+   "dead_target": "C:\\Users\\Administrator\\.agents\\skills\\wayfinder",
+   "recoverable_from": "C:\\Users\\Administrator\\.agents\\skills.off-token-tax-20260830\\wayfinder",
+   "status": "parked-on-20260830"
+  },
+  {
+   "name": "wizard",
+   "dead_target": "C:\\Users\\Administrator\\.agents\\skills\\wizard",
+   "recoverable_from": "C:\\Users\\Administrator\\.agents\\skills.off-token-tax-20260830\\wizard",
+   "status": "parked-on-20260830"
+  },
+  {
+   "name": "writing-beats",
+   "dead_target": "C:\\Users\\Administrator\\.agents\\skills\\writing-beats",
+   "recoverable_from": null,
+   "status": "source-gone"
+  },
+  {
+   "name": "writing-for-agents",
+   "dead_target": "C:\\Users\\Administrator\\.agents\\skills\\writing-for-agents",
+   "recoverable_from": "C:\\Users\\Administrator\\.agents\\skills.off-token-tax-20260830\\writing-for-agents",
+   "status": "parked-on-20260830"
+  },
+  {
+   "name": "writing-fragments",
+   "dead_target": "C:\\Users\\Administrator\\.agents\\skills\\writing-fragments",
+   "recoverable_from": null,
+   "status": "source-gone"
+  },
+  {
+   "name": "writing-shape",
+   "dead_target": "C:\\Users\\Administrator\\.agents\\skills\\writing-shape",
+   "recoverable_from": null,
+   "status": "source-gone"
+  }
+ ]
+}

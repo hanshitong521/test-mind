@@ -1,0 +1,669 @@
+{
+ "window": [
+  1788788976.0,
+  1788788981.0
+ ],
+ "scanned": 36608,
+ "hits": [
+  {
+   "path": "E:\\workA\\A-skill\\concise-mind\\evals.json",
+   "kind": "zero",
+   "size": 0,
+   "mtime": 1788788977.56766
+  },
+  {
+   "path": "E:\\workA\\A-skill\\dev-hub\\AGENT-OS-vNext.md",
+   "kind": "crlf",
+   "size": 2,
+   "mtime": 1788788978.2957056
+  },
+  {
+   "path": "E:\\workA\\A-skill\\dev-hub\\index.html",
+   "kind": "crlf",
+   "size": 2,
+   "mtime": 1788788978.298874
+  },
+  {
+   "path": "E:\\workA\\A-skill\\dev-hub\\README.md",
+   "kind": "crlf",
+   "size": 2,
+   "mtime": 1788788978.299959
+  },
+  {
+   "path": "E:\\workA\\A-skill\\dev-hub\\server.mjs",
+   "kind": "crlf",
+   "size": 2,
+   "mtime": 1788788978.3010526
+  },
+  {
+   "path": "E:\\workA\\A-skill\\dev-hub\\stop-hub.ps1",
+   "kind": "crlf",
+   "size": 2,
+   "mtime": 1788788978.2994318
+  },
+  {
+   "path": "E:\\workA\\A-skill\\hearoom-mind\\headroom.local.env",
+   "kind": "crlf",
+   "size": 2,
+   "mtime": 1788788978.3005
+  },
+  {
+   "path": "E:\\workA\\A-skill\\hearoom-mind\\headroom.providers.yaml",
+   "kind": "crlf",
+   "size": 2,
+   "mtime": 1788788978.2902682
+  },
+  {
+   "path": "E:\\workA\\A-skill\\hearoom-mind\\start-proxy.ps1",
+   "kind": "crlf",
+   "size": 2,
+   "mtime": 1788788978.2918577
+  },
+  {
+   "path": "E:\\workA\\A-skill\\hearoom-mind\\sync-fullblood.ps1",
+   "kind": "crlf",
+   "size": 2,
+   "mtime": 1788788978.2962406
+  },
+  {
+   "path": "E:\\workA\\A-skill\\hearoom-mind\\.agent\\state\\task_state.json",
+   "kind": "crlf",
+   "size": 2,
+   "mtime": 1788788978.2913072
+  },
+  {
+   "path": "E:\\workA\\A-skill\\mcp-repo-mind\\.gitignore",
+   "kind": "crlf",
+   "size": 2,
+   "mtime": 1788788978.2929971
+  },
+  {
+   "path": "E:\\workA\\A-skill\\mcp-repo-mind\\docs\\HANDOFF.md",
+   "kind": "crlf",
+   "size": 2,
+   "mtime": 1788788978.2994318
+  },
+  {
+   "path": "E:\\workA\\A-skill\\mcp-repo-mind\\lib\\bundle.mjs",
+   "kind": "crlf",
+   "size": 2,
+   "mtime": 1788788978.298355
+  },
+  {
+   "path": "E:\\workA\\A-skill\\mcp-repo-mind\\lib\\cache.mjs",
+   "kind": "crlf",
+   "size": 2,
+   "mtime": 1788788978.3005
+  },
+  {
+   "path": "E:\\workA\\A-skill\\mcp-repo-mind\\lib\\envelope.mjs",
+   "kind": "crlf",
+   "size": 2,
+   "mtime": 1788788978.2918577
+  },
+  {
+   "path": "E:\\workA\\A-skill\\mcp-repo-mind\\lib\\runtime.mjs",
+   "kind": "crlf",
+   "size": 2,
+   "mtime": 1788788978.2951527
+  },
+  {
+   "path": "E:\\workA\\A-skill\\mcp-repo-mind\\lib\\success-cmd.mjs",
+   "kind": "crlf",
+   "size": 2,
+   "mtime": 1788788978.294062
+  },
+  {
+   "path": "E:\\workA\\A-skill\\mcp-repo-mind\\lib\\tools\\draft.mjs",
+   "kind": "crlf",
+   "size": 2,
+   "mtime": 1788788978.2907906
+  },
+  {
+   "path": "E:\\workA\\A-skill\\mcp-repo-mind\\lib\\tools\\gap.mjs",
+   "kind": "crlf",
+   "size": 2,
+   "mtime": 1788788978.298355
+  },
+  {
+   "path": "E:\\workA\\A-skill\\mcp-repo-mind\\lib\\tools\\review.mjs",
+   "kind": "crlf",
+   "size": 2,
+   "mtime": 1788788978.2918577
+  },
+  {
+   "path": "E:\\workA\\A-skill\\mcp-repo-mind\\lib\\tools\\self-check.mjs",
+   "kind": "crlf",
+   "size": 2,
+   "mtime": 1788788978.2957056
+  },
+  {
+   "path": "E:\\workA\\A-skill\\mcp-repo-mind\\lib\\tools\\verify.mjs",
+   "kind": "crlf",
+   "size": 2,
+   "mtime": 1788788978.2913072
+  },
+  {
+   "path": "E:\\workA\\A-skill\\mcp-repo-mind\\test\\contract.test.mjs",
+   "kind": "crlf",
+   "size": 2,
+   "mtime": 1788788978.294062
+  },
+  {
+   "path": "E:\\workA\\A-skill\\project-brain-agent\\README.md",
+   "kind": "zero",
+   "size": 0,
+   "mtime": 1788788977.5716572
+  },
+  {
+   "path": "E:\\workA\\A-skill\\project-brain-agent\\scripts\\mcp-cursor.mjs",
+   "kind": "crlf",
+   "size": 2,
+   "mtime": 1788788978.298355
+  },
+  {
+   "path": "E:\\workA\\A-skill\\project-brain-agent\\scripts\\start-dashboard-background.ps1",
+   "kind": "zero",
+   "size": 0,
+   "mtime": 1788788977.5696588
+  },
+  {
+   "path": "E:\\workA\\A-skill\\project-brain-agent\\scripts\\sync_requirementmind.py",
+   "kind": "crlf",
+   "size": 2,
+   "mtime": 1788788978.292909
+  },
+  {
+   "path": "E:\\workA\\A-skill\\project-brain-agent\\scripts\\verify-install.ps1",
+   "kind": "crlf",
+   "size": 2,
+   "mtime": 1788788978.2929971
+  },
+  {
+   "path": "E:\\workA\\A-skill\\project-brain-agent\\tests\\acceptance\\test_t1_t2_t3.py",
+   "kind": "zero",
+   "size": 0,
+   "mtime": 1788788977.5716572
+  },
+  {
+   "path": "E:\\workA\\A-skill\\project-brain-agent\\tests\\unit\\test_knowledge_rank.py",
+   "kind": "crlf",
+   "size": 2,
+   "mtime": 1788788978.2957056
+  },
+  {
+   "path": "E:\\workA\\A-skill\\project-brain-agent\\tests\\unit\\test_mcp_why_tools.py",
+   "kind": "crlf",
+   "size": 2,
+   "mtime": 1788788978.3005
+  },
+  {
+   "path": "E:\\workA\\A-skill\\project-brain-agent\\tests\\unit\\test_memory_dedup_analytics.py",
+   "kind": "crlf",
+   "size": 2,
+   "mtime": 1788788978.2994318
+  },
+  {
+   "path": "E:\\workA\\A-skill\\project-brain-agent\\tests\\unit\\test_rank.py",
+   "kind": "crlf",
+   "size": 2,
+   "mtime": 1788788978.294062
+  },
+  {
+   "path": "E:\\workA\\A-skill\\project-brain-agent\\tests\\unit\\test_stats_store.py",
+   "kind": "crlf",
+   "size": 2,
+   "mtime": 1788788978.2929971
+  },
+  {
+   "path": "E:\\workA\\A-skill\\requirement-mind\\scripts\\fixtures\\questions-legacy.json",
+   "kind": "crlf",
+   "size": 2,
+   "mtime": 1788788978.2978375
+  },
+  {
+   "path": "E:\\workA\\shejiuPro\\reasonix.toml",
+   "kind": "zero",
+   "size": 0,
+   "mtime": 1788788977.5706577
+  },
+  {
+   "path": "E:\\workA\\shejiuPro\\.agent\\rules\\shejiu-product.rules.md",
+   "kind": "crlf",
+   "size": 2,
+   "mtime": 1788788978.2907906
+  },
+  {
+   "path": "E:\\workA\\shejiuPro\\.contextmind\\task.example.md",
+   "kind": "crlf",
+   "size": 2,
+   "mtime": 1788788978.3010526
+  },
+  {
+   "path": "E:\\workA\\shejiuPro\\.cursor\\hooks.json",
+   "kind": "crlf",
+   "size": 2,
+   "mtime": 1788788978.2929971
+  },
+  {
+   "path": "E:\\workA\\shejiuPro\\.cursor\\contextmind\\lib\\shell-result.mjs",
+   "kind": "crlf",
+   "size": 2,
+   "mtime": 1788788978.2918577
+  },
+  {
+   "path": "E:\\workA\\shejiuPro\\.cursor\\evidence\\point-daily-consume-stat.yaml",
+   "kind": "crlf",
+   "size": 2,
+   "mtime": 1788788978.2907906
+  },
+  {
+   "path": "E:\\workA\\shejiuPro\\.cursor\\hooks\\cm-post-tool.mjs",
+   "kind": "zero",
+   "size": 0,
+   "mtime": 1788788977.5716572
+  },
+  {
+   "path": "E:\\workA\\shejiuPro\\.cursor\\hooks\\gate-mysql-output.mjs",
+   "kind": "crlf",
+   "size": 2,
+   "mtime": 1788788978.2902682
+  },
+  {
+   "path": "E:\\workA\\shejiuPro\\.cursor\\hooks\\prompt-token-output.cmd",
+   "kind": "crlf",
+   "size": 2,
+   "mtime": 1788788978.289714
+  },
+  {
+   "path": "E:\\workA\\shejiuPro\\.cursor\\hooks\\prompt-token-output.mjs",
+   "kind": "crlf",
+   "size": 2,
+   "mtime": 1788788978.2957056
+  },
+  {
+   "path": "E:\\workA\\shejiuPro\\.cursor\\hooks\\prompt-token-pipeline.cmd",
+   "kind": "crlf",
+   "size": 2,
+   "mtime": 1788788978.2951527
+  },
+  {
+   "path": "E:\\workA\\shejiuPro\\.cursor\\mcp-mysql\\autolink_sql_probe.mjs",
+   "kind": "crlf",
+   "size": 2,
+   "mtime": 1788788978.2957056
+  },
+  {
+   "path": "E:\\workA\\shejiuPro\\.cursor\\mcp-mysql\\bench_ocean_batch.cjs",
+   "kind": "crlf",
+   "size": 2,
+   "mtime": 1788788978.2957056
+  },
+  {
+   "path": "E:\\workA\\shejiuPro\\.cursor\\reference\\agents-full.md",
+   "kind": "zero",
+   "size": 0,
+   "mtime": 1788788977.5716572
+  },
+  {
+   "path": "E:\\workA\\shejiuPro\\.cursor\\reference\\host-tier0-live-session-probes.json",
+   "kind": "crlf",
+   "size": 2,
+   "mtime": 1788788978.2962406
+  },
+  {
+   "path": "E:\\workA\\shejiuPro\\.cursor\\reference\\remote-log-auth.local.json.example",
+   "kind": "crlf",
+   "size": 2,
+   "mtime": 1788788978.294062
+  },
+  {
+   "path": "E:\\workA\\shejiuPro\\.cursor\\rules\\openviking-memory.mdc",
+   "kind": "zero",
+   "size": 0,
+   "mtime": 1788788977.575099
+  },
+  {
+   "path": "E:\\workA\\shejiuPro\\.cursor\\rules\\shejiu-brain-memory.mdc",
+   "kind": "crlf",
+   "size": 2,
+   "mtime": 1788788978.298874
+  },
+  {
+   "path": "E:\\workA\\shejiuPro\\.cursor\\rules\\shejiu-decided.mdc",
+   "kind": "crlf",
+   "size": 2,
+   "mtime": 1788788978.2946293
+  },
+  {
+   "path": "E:\\workA\\shejiuPro\\.cursor\\skills\\contextmind-maintain\\SKILL.md",
+   "kind": "zero",
+   "size": 0,
+   "mtime": 1788788977.5706577
+  },
+  {
+   "path": "E:\\workA\\shejiuPro\\.cursor\\skills\\grilling\\SKILL.md",
+   "kind": "crlf",
+   "size": 2,
+   "mtime": 1788788978.299959
+  },
+  {
+   "path": "E:\\workA\\shejiuPro\\.cursor\\skills\\requirement-mind\\SKILL.md",
+   "kind": "zero",
+   "size": 0,
+   "mtime": 1788788977.5806055
+  },
+  {
+   "path": "E:\\workA\\shejiuPro\\.cursor\\skills\\requirement-mind\\schemas\\state.schema.json",
+   "kind": "zero",
+   "size": 0,
+   "mtime": 1788788977.5666778
+  },
+  {
+   "path": "E:\\workA\\shejiuPro\\.cursor\\skills\\requirement-mind\\scripts\\state.mjs",
+   "kind": "zero",
+   "size": 0,
+   "mtime": 1788788977.5686588
+  },
+  {
+   "path": "E:\\workA\\shejiuPro\\.cursor\\skills\\requirement-mind\\scripts\\fixtures\\decisions-legacy.json",
+   "kind": "crlf",
+   "size": 2,
+   "mtime": 1788788978.2946293
+  },
+  {
+   "path": "E:\\workA\\shejiuPro\\.cursor\\skills\\shejiu-remote\\SKILL.md",
+   "kind": "crlf",
+   "size": 2,
+   "mtime": 1788788978.2962406
+  },
+  {
+   "path": "E:\\workA\\shejiuPro\\.cursor\\skills\\shejiu-test-logs\\fetch.py",
+   "kind": "crlf",
+   "size": 2,
+   "mtime": 1788788978.2967677
+  },
+  {
+   "path": "E:\\workA\\shejiuPro\\.cursor\\skills\\shejiu-test-logs\\SKILL.md",
+   "kind": "crlf",
+   "size": 2,
+   "mtime": 1788788978.2978375
+  },
+  {
+   "path": "E:\\workA\\shejiuPro\\docker\\contextmind-cache\\docker-compose.yml",
+   "kind": "crlf",
+   "size": 2,
+   "mtime": 1788788978.2929971
+  },
+  {
+   "path": "E:\\workA\\shejiuPro\\docs\\anchorRedpacketInfluencerList-fields.md",
+   "kind": "crlf",
+   "size": 2,
+   "mtime": 1788788978.293512
+  },
+  {
+   "path": "E:\\workA\\shejiuPro\\docs\\anchorRedpacketList-currentPlan.md",
+   "kind": "crlf",
+   "size": 2,
+   "mtime": 1788788978.2946293
+  },
+  {
+   "path": "E:\\workA\\shejiuPro\\docs\\livePopupExplain.md",
+   "kind": "crlf",
+   "size": 2,
+   "mtime": 1788788978.2951527
+  },
+  {
+   "path": "E:\\workA\\shejiuPro\\docs\\workspace-index.md",
+   "kind": "crlf",
+   "size": 2,
+   "mtime": 1788788978.294062
+  },
+  {
+   "path": "E:\\workA\\shejiuPro\\docs\\agent-stack\\PEAK.md",
+   "kind": "crlf",
+   "size": 2,
+   "mtime": 1788788978.299959
+  },
+  {
+   "path": "E:\\workA\\shejiuPro\\docs\\daily\\20260831\\headroom-pin-memories.json",
+   "kind": "crlf",
+   "size": 2,
+   "mtime": 1788788978.2913072
+  },
+  {
+   "path": "E:\\workA\\shejiuPro\\docs\\requirementmind\\PROJECT_FACTS.md",
+   "kind": "crlf",
+   "size": 2,
+   "mtime": 1788788978.299959
+  },
+  {
+   "path": "E:\\workA\\shejiuPro\\memory\\README.md",
+   "kind": "crlf",
+   "size": 2,
+   "mtime": 1788788978.2913072
+  },
+  {
+   "path": "E:\\workA\\shejiuPro\\scripts\\cache-ab-bench.mjs",
+   "kind": "crlf",
+   "size": 2,
+   "mtime": 1788788978.2973063
+  },
+  {
+   "path": "E:\\workA\\shejiuPro\\scripts\\cache-integrate-bench.mjs",
+   "kind": "crlf",
+   "size": 2,
+   "mtime": 1788788978.2923913
+  },
+  {
+   "path": "E:\\workA\\shejiuPro\\scripts\\cache-token-savings.mjs",
+   "kind": "crlf",
+   "size": 2,
+   "mtime": 1788788978.2907906
+  },
+  {
+   "path": "E:\\workA\\shejiuPro\\scripts\\contextmind-redis-install.ps1",
+   "kind": "crlf",
+   "size": 2,
+   "mtime": 1788788978.2946293
+  },
+  {
+   "path": "E:\\workA\\shejiuPro\\scripts\\contextmind-redis-up.ps1",
+   "kind": "crlf",
+   "size": 2,
+   "mtime": 1788788978.3005
+  },
+  {
+   "path": "E:\\workA\\shejiuPro\\scripts\\headroom-cursor.ps1",
+   "kind": "crlf",
+   "size": 2,
+   "mtime": 1788788978.2923913
+  },
+  {
+   "path": "E:\\workA\\shejiuPro\\scripts\\install-openviking.ps1",
+   "kind": "crlf",
+   "size": 2,
+   "mtime": 1788788978.298355
+  },
+  {
+   "path": "E:\\workA\\shejiuPro\\scripts\\mcp_prewarm_codegraph.mjs",
+   "kind": "crlf",
+   "size": 2,
+   "mtime": 1788788978.2923913
+  },
+  {
+   "path": "E:\\workA\\shejiuPro\\scripts\\open_cursor_rules.ps1",
+   "kind": "crlf",
+   "size": 2,
+   "mtime": 1788788978.2907906
+  },
+  {
+   "path": "E:\\workA\\shejiuPro\\scripts\\remote_log_search.py",
+   "kind": "crlf",
+   "size": 2,
+   "mtime": 1788788978.2951527
+  },
+  {
+   "path": "E:\\workA\\shejiuPro\\scripts\\seed_anchor_redpacket_history_pagination.mjs",
+   "kind": "crlf",
+   "size": 2,
+   "mtime": 1788788978.2994318
+  },
+  {
+   "path": "E:\\workA\\shejiuPro\\scripts\\sync_week_stats_prod_to_test.py",
+   "kind": "crlf",
+   "size": 2,
+   "mtime": 1788788978.2994318
+  },
+  {
+   "path": "E:\\workA\\shejiuPro\\scripts\\token_hygiene.ps1",
+   "kind": "crlf",
+   "size": 2,
+   "mtime": 1788788978.2994318
+  },
+  {
+   "path": "E:\\workA\\shejiuPro\\scripts\\workspace_prune.ps1",
+   "kind": "crlf",
+   "size": 2,
+   "mtime": 1788788978.2967677
+  },
+  {
+   "path": "E:\\workA\\shejiuPro\\scripts\\finc_backfill\\backfill_finc_company_report.py",
+   "kind": "zero",
+   "size": 0,
+   "mtime": 1788788977.5706577
+  },
+  {
+   "path": "E:\\workA\\shejiuPro\\scripts\\finc_backfill\\backup_drift293.py",
+   "kind": "crlf",
+   "size": 2,
+   "mtime": 1788788978.2946293
+  },
+  {
+   "path": "E:\\workA\\shejiuPro\\scripts\\finc_backfill\\restore_finc_backup.py",
+   "kind": "crlf",
+   "size": 2,
+   "mtime": 1788788978.2962406
+  },
+  {
+   "path": "E:\\workA\\shejiuPro\\scripts\\ocean_backfill\\README.md",
+   "kind": "crlf",
+   "size": 2,
+   "mtime": 1788788978.2907906
+  },
+  {
+   "path": "E:\\workA\\shejiuPro\\scripts\\ocean_ddl\\alter_t_live_popup_explain_slot_mode.sql",
+   "kind": "crlf",
+   "size": 2,
+   "mtime": 1788788978.2962406
+  },
+  {
+   "path": "E:\\workA\\shejiuPro\\scripts\\ocean_ddl\\t_buyin_order_selector_payment_time.sql",
+   "kind": "crlf",
+   "size": 2,
+   "mtime": 1788788978.2923913
+  },
+  {
+   "path": "E:\\workA\\shejiuPro\\scripts\\ocean_ddl\\t_live_popup_explain.sql",
+   "kind": "crlf",
+   "size": 2,
+   "mtime": 1788788978.2973063
+  },
+  {
+   "path": "E:\\workA\\shejiuPro\\scripts\\ocean_ddl\\t_ocean_brand_comment_company_brand_index.sql",
+   "kind": "crlf",
+   "size": 2,
+   "mtime": 1788788978.2918577
+  },
+  {
+   "path": "E:\\workA\\shejiuPro\\scripts\\ocean_ddl\\t_ocean_brand_comment_score_column.sql",
+   "kind": "crlf",
+   "size": 2,
+   "mtime": 1788788978.2913072
+  },
+  {
+   "path": "E:\\workA\\shejiuPro\\scripts\\ocean_ddl\\t_red_packet_slim_20260828.sql",
+   "kind": "crlf",
+   "size": 2,
+   "mtime": 1788788978.2978375
+  },
+  {
+   "path": "E:\\workA\\shejiuPro\\scripts\\ocean_ddl\\t_red_packet_task.sql",
+   "kind": "crlf",
+   "size": 2,
+   "mtime": 1788788978.2946293
+  },
+  {
+   "path": "E:\\workA\\shejiuPro\\scripts\\ocean_ddl\\t_red_packet_task_influencer_id_varchar.sql",
+   "kind": "crlf",
+   "size": 2,
+   "mtime": 1788788978.2957056
+  },
+  {
+   "path": "E:\\workA\\shejiuPro\\scripts\\ocean_ddl\\t_red_packet_task_seed_123x123.sql",
+   "kind": "crlf",
+   "size": 2,
+   "mtime": 1788788978.2946293
+  },
+  {
+   "path": "E:\\workA\\shejiuPro\\scripts\\ocean_ddl\\t_return_rate_record.sql",
+   "kind": "crlf",
+   "size": 2,
+   "mtime": 1788788978.293512
+  },
+  {
+   "path": "E:\\workA\\shejiuPro\\scripts\\py-script-lite\\INDEX.md",
+   "kind": "crlf",
+   "size": 2,
+   "mtime": 1788788978.2918577
+  },
+  {
+   "path": "E:\\workA\\shejiuPro\\scripts\\py-script-lite\\data_stat\\agg.py",
+   "kind": "crlf",
+   "size": 2,
+   "mtime": 1788788978.2913072
+  },
+  {
+   "path": "E:\\workA\\shejiuPro\\scripts\\py-script-lite\\db_conn\\txn.py",
+   "kind": "crlf",
+   "size": 2,
+   "mtime": 1788788978.2962406
+  },
+  {
+   "path": "E:\\workA\\shejiuPro\\scripts\\py-script-lite\\db_crud\\batch.py",
+   "kind": "crlf",
+   "size": 2,
+   "mtime": 1788788978.2951527
+  },
+  {
+   "path": "E:\\workA\\shejiuPro\\scripts\\py-script-lite\\db_crud\\query.py",
+   "kind": "crlf",
+   "size": 2,
+   "mtime": 1788788978.2957056
+  },
+  {
+   "path": "E:\\workA\\shejiuPro\\scripts\\py-script-lite\\db_crud\\snippet_ocean_lock.py",
+   "kind": "crlf",
+   "size": 2,
+   "mtime": 1788788978.299377
+  },
+  {
+   "path": "E:\\workA\\shejiuPro\\scripts\\py-script-lite\\db_crud\\tpl_select.py",
+   "kind": "crlf",
+   "size": 2,
+   "mtime": 1788788978.289714
+  },
+  {
+   "path": "E:\\workA\\shejiuPro\\scripts\\py-script-lite\\judge_tool\\env.py",
+   "kind": "crlf",
+   "size": 2,
+   "mtime": 1788788978.298355
+  },
+  {
+   "path": "E:\\workA\\shejiuTest\\.cursor\\skills\\concise-mind\\evals.json",
+   "kind": "zero",
+   "size": 0,
+   "mtime": 1788788977.56766
+  }
+ ]
+}
