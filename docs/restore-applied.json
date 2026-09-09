@@ -1,0 +1,48 @@
+{
+  "applied": true,
+  "restored": [
+    {
+      "src": "E:\\workA\\A-skill\\project-brain-agent\\agent-canvas\\.cursor\\skills\\requirement-mind\\scripts\\fixtures\\decisions-legacy.json",
+      "dst": "E:\\workA\\shejiuPro\\.cursor\\skills\\requirement-mind\\scripts\\fixtures\\decisions-legacy.json",
+      "bytes": 213,
+      "suffix_agreement": 6
+    },
+    {
+      "src": "E:\\workA\\A-skill\\project-brain-agent\\agent-canvas\\.cursor\\skills\\requirement-mind\\schemas\\state.schema.json",
+      "dst": "E:\\workA\\shejiuPro\\.cursor\\skills\\requirement-mind\\schemas\\state.schema.json",
+      "bytes": 9287,
+      "suffix_agreement": 5
+    },
+    {
+      "src": "E:\\workA\\A-skill\\project-brain-agent\\agent-canvas\\.cursor\\skills\\requirement-mind\\scripts\\state.mjs",
+      "dst": "E:\\workA\\shejiuPro\\.cursor\\skills\\requirement-mind\\scripts\\state.mjs",
+      "bytes": 23301,
+      "suffix_agreement": 5
+    },
+    {
+      "src": "E:\\workA\\A-skill\\project-brain-agent\\agent-canvas\\.cursor\\skills\\requirement-mind\\SKILL.md",
+      "dst": "E:\\workA\\shejiuPro\\.cursor\\skills\\requirement-mind\\SKILL.md",
+      "bytes": 10931,
+      "suffix_agreement": 4
+    },
+    {
+      "src": "E:\\workA\\A-skill\\project-brain-agent\\agent-canvas\\.cursor\\skills\\requirement-mind\\scripts\\fixtures\\questions-legacy.json",
+      "dst": "E:\\workA\\A-skill\\requirement-mind\\scripts\\fixtures\\questions-legacy.json",
+      "bytes": 679,
+      "suffix_agreement": 4
+    },
+    {
+      "src": "E:\\workA\\A-skill\\Token-Mind\\contextmind\\lib\\shell-result.mjs",
+      "dst": "E:\\workA\\shejiuPro\\.cursor\\contextmind\\lib\\shell-result.mjs",
+      "bytes": 1015,
+      "suffix_agreement": 3
+    },
+    {
+      "src": "E:\\workA\\A-skill\\Token-Mind\\cursor\\hooks\\cm-post-tool.mjs",
+      "dst": "E:\\workA\\shejiuPro\\.cursor\\hooks\\cm-post-tool.mjs",
+      "bytes": 2029,
+      "suffix_agreement": 2
+    }
+  ],
+  "skipped": []
+}

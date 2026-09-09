@@ -1,0 +1,66 @@
+[
+ {
+  "damaged": "E:\\workA\\shejiuPro\\.cursor\\skills\\requirement-mind\\scripts\\fixtures\\decisions-legacy.json",
+  "copy": {
+   "path": "E:\\workA\\A-skill\\project-brain-agent\\agent-canvas\\.cursor\\skills\\requirement-mind\\scripts\\fixtures\\decisions-legacy.json",
+   "size": 213,
+   "mtime": 1788572940.7280836
+  }
+ },
+ {
+  "damaged": "E:\\workA\\shejiuPro\\.cursor\\skills\\requirement-mind\\schemas\\state.schema.json",
+  "copy": {
+   "path": "E:\\workA\\A-skill\\project-brain-agent\\agent-canvas\\.cursor\\skills\\requirement-mind\\schemas\\state.schema.json",
+   "size": 9287,
+   "mtime": 1788590164.0893278
+  }
+ },
+ {
+  "damaged": "E:\\workA\\shejiuPro\\.cursor\\skills\\requirement-mind\\scripts\\state.mjs",
+  "copy": {
+   "path": "E:\\workA\\A-skill\\project-brain-agent\\agent-canvas\\.cursor\\skills\\requirement-mind\\scripts\\state.mjs",
+   "size": 23301,
+   "mtime": 1788590302.5998368
+  }
+ },
+ {
+  "damaged": "E:\\workA\\A-skill\\requirement-mind\\scripts\\fixtures\\questions-legacy.json",
+  "copy": {
+   "path": "E:\\workA\\A-skill\\project-brain-agent\\agent-canvas\\.cursor\\skills\\requirement-mind\\scripts\\fixtures\\questions-legacy.json",
+   "size": 679,
+   "mtime": 1788572952.6277454
+  }
+ },
+ {
+  "damaged": "E:\\workA\\shejiuPro\\.cursor\\skills\\requirement-mind\\SKILL.md",
+  "copy": {
+   "path": "E:\\workA\\A-skill\\project-brain-agent\\agent-canvas\\.cursor\\skills\\requirement-mind\\SKILL.md",
+   "size": 10931,
+   "mtime": 1788590521.2782853
+  }
+ },
+ {
+  "damaged": "E:\\workA\\A-skill\\hearoom-mind\\.agent\\state\\task_state.json",
+  "copy": {
+   "path": "E:\\workA\\shejiuPro\\.agent\\state\\task_state.json",
+   "size": 260,
+   "mtime": 1788788978.3010526
+  }
+ },
+ {
+  "damaged": "E:\\workA\\shejiuPro\\.cursor\\contextmind\\lib\\shell-result.mjs",
+  "copy": {
+   "path": "E:\\workA\\A-skill\\Token-Mind\\contextmind\\lib\\shell-result.mjs",
+   "size": 1015,
+   "mtime": 1788486995.8470955
+  }
+ },
+ {
+  "damaged": "E:\\workA\\shejiuPro\\.cursor\\skills\\contextmind-maintain\\SKILL.md",
+  "copy": {
+   "path": "E:\\workA\\A-skill\\Token-Mind\\cursor\\skills\\contextmind-maintain\\SKILL.md",
+   "size": 2344,
+   "mtime": 1788788978.274148
+  }
+ }
+]
