@@ -1,0 +1,22 @@
+{
+  "env_id": "peak-sim-local",
+  "env_class": "test",
+  "base_url": "http://127.0.0.1:0",
+  "health_url": "http://127.0.0.1:0/items?page=1&size=1",
+  "allowed_hosts": ["127.0.0.1", "localhost"],
+  "openapi_path": "openapi.json",
+  "capabilities": {
+    "destructive": true,
+    "fault": false,
+    "concurrency": true,
+    "load_test": false
+  },
+  "db": {
+    "kind": "sqlite",
+    "path": "{{SIM_DB_PATH}}"
+  },
+  "secret_refs": {
+    "api_key": "secret_ref:sim/demo-api-key"
+  },
+  "fingerprint": "peak-sim-v1-local"
+}

@@ -1,0 +1,39 @@
+{
+  "schema_version": 2,
+  "task_id": "SIM-PEAK-20260910",
+  "requirement": {
+    "session_id": "RM-SIM-001"
+  },
+  "intent": {
+    "goal": "模拟跨 AI 验收：库存关系 + 分页查询 + 幂等写，全链 Evidence + 四件套"
+  },
+  "spec": {
+    "verify": {
+      "change_manifest": {
+        "schema_version": 1,
+        "task_id": "SIM-PEAK-20260910",
+        "project_id": "peak-sim",
+        "service_id": "generic-api",
+        "repo": {
+          "base_sha": "sim-base",
+          "head_sha": "sim-head"
+        },
+        "changes": {
+          "endpoints": [
+            {"operation_id": "createStock", "method": "POST", "path": "/stock"},
+            {"operation_id": "listItems", "method": "GET", "path": "/items"},
+            {"operation_id": "createCoupon", "method": "POST", "path": "/coupons"}
+          ]
+        },
+        "risks": {
+          "relation": true,
+          "idempotency": true,
+          "concurrency": false
+        },
+        "environment_ref": "env://peak-sim/local"
+      },
+      "decision_context_ref": ".requirementmind/decisions.json",
+      "consumer_repo_root": "."
+    }
+  }
+}

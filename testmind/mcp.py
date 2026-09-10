@@ -5,6 +5,8 @@ import urllib.request
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from testmind import core
+from testmind import env_policy, env_registry, export, git_change, java_scan, session_store, tool_schemas
+from testmind.secrets import redact_obj
 
 TOOLS = {
     "inspect_project":       {"desc": "扫描可测面(SQL/OpenAPI/构建文件)+runner可用性", "args": {"path": "项目目录(可选)"}},
@@ -42,9 +44,17 @@ TOOLS = {
     "run_pipeline":          {"desc": "一步到位 collect→contract→plan→env→suite→schema→gate",
                               "args": {"schema_sql": "", "openapi": "", "contract": "{}", "plan": "{}", "env": "{}"}},
     "cleanup":               {"desc": "关闭环境/代理", "args": {}},
+    "scan_java":             {"desc": "扫描 Java/Spring 源码提取端点与校验注解事实", "args": {"path": "项目根目录", "max_files": 500}},
+    "intake_task":           {"desc": "消费 TaskBundle v2 + 落盘 task 目录", "args": {"task_bundle": "{}", "consumer_root": ""}},
+    "export_handoff":        {"desc": "导出四件套到 consumer .testmind/tasks", "args": {"task_id": ""}},
 }
 
-HELP = {"type": "object", "properties": {"args": {"type": "object"}}}
+def normalize_args(a):
+    if not a:
+        return {}
+    if isinstance(a, dict) and set(a.keys()) == {"args"} and isinstance(a.get("args"), dict):
+        return a["args"]
+    return a
 
 
 class Session:
@@ -69,15 +79,21 @@ class Session:
         self.openapi_url = None
         self.schema = None
         self.hooks = None
+        self.task_id = None
+        self.consumer_root = None
+        self.require_schema = False
 
 
 S = Session()
 
 
 def envelope(status, summary, **kw):
-    return {"status": status, "summary": summary,
+    body = {"schema_version": tool_schemas.schema_version(),
+            "task_id": S.task_id,
+            "status": status, "summary": summary,
             "evidence": kw.pop("evidence", []), "facts": kw.pop("facts", []),
             "unknowns": kw.pop("unknowns", []), "next_actions": kw.pop("next_actions", []), **kw}
+    return redact_obj(body)
 
 
 def make_proxy(upstream, port=18198):
@@ -106,7 +122,11 @@ def _kill_sut():
             if os.name == "nt":
                 subprocess.run(f"taskkill /F /T /PID {proc.pid}", capture_output=True, shell=True, timeout=15)
             else:
-                proc.terminate()
+                import signal
+                try:
+                    os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
+                except Exception:
+                    proc.terminate()
             proc.wait(timeout=10)
         except Exception:
             pass
@@ -129,10 +149,14 @@ def _spawn_sut(sut, ev):
     if not hc.get("url") and not hc.get("port"):
         return {"status": "BLOCKED", "reason": "sut.health_check needs url or port (活探测，不猜启动完成)"}
     log = open(os.path.join(ev.dir, "sut.log"), "wb")
-    flags = subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0
-    proc = subprocess.Popen(cmd, cwd=sut.get("cwd") or core.ROOT, shell=True,
-                            env={**os.environ, **(sut.get("env") or {})},
-                            stdout=log, stderr=subprocess.STDOUT, creationflags=flags)
+    popen_kw = {"cwd": sut.get("cwd") or core.ROOT, "shell": True,
+                "env": {**os.environ, **(sut.get("env") or {})},
+                "stdout": log, "stderr": subprocess.STDOUT}
+    if os.name == "nt":
+        popen_kw["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
+    else:
+        popen_kw["start_new_session"] = True
+    proc = subprocess.Popen(cmd, **popen_kw)
     S.sut_proc, S.sut_log = proc, log
     deadline = time.time() + float(hc.get("timeout_s", 30))
     url, last = hc.get("url"), ""
@@ -167,7 +191,42 @@ def _spawn_sut(sut, ev):
 
 
 def dispatch(name, a):
-    a = a or {}
+    a = normalize_args(a or {})
+    if name == "intake_task":
+        bundle = a.get("task_bundle") or {}
+        tid = bundle.get("task_id")
+        if not tid:
+            return envelope("BLOCKED", "task_bundle.task_id required")
+        root = a.get("consumer_root") or core.ROOT
+        session_store.save_snapshot(root, tid, bundle)
+        S.task_id, S.consumer_root = tid, root
+        verify = (bundle.get("spec") or {}).get("verify") or {}
+        if verify.get("change_manifest"):
+            S.ev = S.ev or core.Evidence()
+            S.ev.write("change-manifest.json", verify["change_manifest"])
+        return envelope("PASS", f"task {tid} intake", task_id=tid,
+                        next_actions=["collect_facts", "analyze_change"])
+    if name == "export_handoff":
+        tid = a.get("task_id") or S.task_id
+        if not tid or not S.ev:
+            return envelope("BLOCKED", "no task_id or evidence run")
+        root = S.consumer_root or core.ROOT
+        task_dir = session_store.task_root(root, tid)
+        rep = {"run_id": S.ev.run_id, "final": "UNKNOWN", "why": "",
+               "facts_confirmed": len([x for x in S.facts.f if x.get("status") == "CONFIRMED"]),
+               "conflicts": S.facts.conflicts(), "risk_floor": core.risk_floor(S.facts, S.hooks)}
+        manifest = export.build_evidence_manifest(S.ev.dir)
+        rep["evidence_manifest_hash"] = manifest.get("manifest_hash", "")
+        paths = export.write_four_piece(task_dir, rep, S.results, S.plan, S.facts.snapshot(), S.ev.dir)
+        return envelope("PASS", "artifacts exported", artifacts=list(paths.values()), task_id=tid)
+    if name == "scan_java":
+        root = a.get("path") or core.ROOT
+        res = java_scan.scan_java_tree(root, max_files=int(a.get("max_files", 500)))
+        for x in res.f:
+            S.facts.f.append({**x, "id": f"F{len(S.facts.f)+1:03d}"})
+        S.facts.unparsed += res.unparsed
+        return envelope("PASS", f"java scan: {len(res.f)} facts, {len(res.unparsed)} unparsed",
+                        unparsed=res.unparsed, next_actions=["collect_facts", "plan_tests"])
     if name == "inspect_project":
         root = a.get("path") or core.ROOT
         found = {"sql": [], "openapi": [], "build": []}
@@ -184,18 +243,26 @@ def dispatch(name, a):
         return envelope("PASS", f"scanned: {sum(len(v) for v in found.values())} candidate sources",
                         found=found, runners=core.scan_runners(), next_actions=["collect_facts", "add_facts"])
     if name == "analyze_change":
-        import subprocess
-        r = subprocess.run("git diff --name-only HEAD", capture_output=True, text=True, shell=True,
-                           cwd=a.get("path") or core.ROOT)
-        files = [x for x in (r.stdout or "").splitlines() if x.strip()]
-        return envelope("PASS", f"{len(files)} changed files", changed=files[:100],
+        info = git_change.analyze_git_change(
+            a.get("path") or core.ROOT,
+            base_sha=a.get("base_sha"),
+            head_sha=a.get("head_sha"),
+            include_untracked=a.get("include_untracked", True),
+        )
+        files = info["changed"] + info["untracked"]
+        return envelope("PASS", f"{len(info['changed'])} changed, {len(info['untracked'])} untracked",
+                        changed=files[:100], git=info,
                         next_actions=["plan_tests", "run_regression"])
     if name == "collect_facts":
+        op = a.get("operation_id")
+        scoped = core.facts_for_operation(S.facts, operation_id=op, path=a.get("path"), method=a.get("method"))
         if a.get("schema_sql"):
             src = a["schema_sql"]
             sql = open(src, encoding="utf-8").read() if os.path.exists(src) else src
-            for x in core.FactResolver.from_schema_sql(sql, str(a["schema_sql"])[:60]).f:
+            res = core.FactResolver.from_schema_sql(sql, str(a["schema_sql"])[:60])
+            for x in res.f:
                 S.facts.f.append({**x, "id": f"F{len(S.facts.f)+1:03d}"})
+            S.facts.unparsed += getattr(res, "unparsed", [])
         if a.get("openapi"):
             spec = a["openapi"]
             if os.path.exists(spec):
@@ -205,11 +272,16 @@ def dispatch(name, a):
                 spec = json.loads(urllib.request.urlopen(spec, timeout=20).read())
             elif isinstance(spec, str):
                 spec = json.loads(spec)
-            for x in core.FactResolver.from_openapi(spec, str(a["openapi"])[:60]).f:
+            res = core.FactResolver.from_openapi(spec, str(a["openapi"])[:60])
+            for x in res.f:
                 S.facts.f.append({**x, "id": f"F{len(S.facts.f)+1:03d}"})
-        cf = S.facts.conflicts()
-        return envelope("BLOCKED" if cf else "PASS", f"{len(S.facts.f)} facts, {len(cf)} conflicts",
-                        conflicts=cf, unknowns=[q["id"] + ": " + q["question"] for q in S.facts.questions],
+            S.facts.unparsed += getattr(res, "unparsed", [])
+        cf = scoped.conflicts() if op or a.get("path") else S.facts.conflicts()
+        unparsed = list(S.facts.unparsed)
+        return envelope("BLOCKED" if cf else "PASS",
+                        f"{len(S.facts.f)} facts, {len(cf)} conflicts, {len(unparsed)} unparsed",
+                        conflicts=cf, unparsed=unparsed,
+                        unknowns=[q["id"] + ": " + q["question"] for q in S.facts.questions],
                         next_actions=["add_facts"] if cf else ["build_contract"])
     if name == "add_facts":
         ids = [S.facts.add_raw(item) for item in a.get("facts", [])]
@@ -242,17 +314,18 @@ def dispatch(name, a):
         return envelope("PASS", "contract built", contract_id=S.contract["contract_id"],
                         next_actions=["plan_tests", "prepare_environment"])
     if name == "plan_tests":
+        facts = core.facts_for_operation(S.facts, operation_id=a.get("operation_id"), path=a.get("path"))
         base = a.get("base_input") or (S.contract or {}).get("inputs", {})
         if not base:
             return envelope("BLOCKED", "base_input required (L0 canonical)", next_actions=["build_contract"])
         S.ev = S.ev or core.Evidence()
-        S.plan = core.plan_cases(S.facts, base, method=a.get("method", "POST"), path=a.get("path", "/"),
+        S.plan = core.plan_cases(facts, base, method=a.get("method", "POST"), path=a.get("path", "/"),
                                  overrides=_expand_overrides(a.get("overrides") or {}),
                                  ok_status=a.get("ok_status", 201), bad_status=a.get("bad_status", 400))
-        S.plan += core.plan_risk_cases(S.facts, base, method=a.get("method", "POST"), path=a.get("path", "/"),
+        S.plan += core.plan_risk_cases(facts, base, method=a.get("method", "POST"), path=a.get("path", "/"),
                                        ok_status=a.get("ok_status", 201), bad_status=a.get("bad_status", 400),
                                        run_id=S.ev.run_id, hooks=S.hooks)
-        S.ev.write("plan.json", {"cases": S.plan, "risk_floor": core.risk_floor(S.facts, S.hooks)})
+        S.ev.write("plan.json", {"cases": S.plan, "risk_floor": core.risk_floor(facts, S.hooks)})
         return envelope("PASS", f"{len(S.plan)} cases", next_actions=["generate_cases", "prepare_environment"])
     if name == "static_precheck":
         if not a.get("schema_sql"):
@@ -301,7 +374,24 @@ def dispatch(name, a):
     if name == "prepare_environment":
         if S.engine:
             return envelope("PASS", "environment already prepared")
+        if a.get("environment_ref"):
+            prof = env_registry.resolve_ref(a["environment_ref"], S.consumer_root or core.ROOT)
+            if prof:
+                prof = env_registry.materialize_secrets(prof,
+                    os.path.join(S.consumer_root or core.ROOT, "env", "secrets"))
+                for k in ("env_class", "base_url", "db", "tables", "proxy_upstream"):
+                    if k in prof and k not in a:
+                        a[k] = prof[k]
+                a.setdefault("env_class", prof.get("env_class"))
+        if not a.get("env_class") and (a.get("example") or a.get("sut")):
+            a.setdefault("env_class", "local")
+        ok, reason = env_policy.check_prepare(
+            a.get("env_class"), a.get("base_url"),
+            destructive=bool(a.get("seed_database")), fault=False, concurrency=False)
+        if not ok and a.get("example") != "red-packet":
+            return envelope("BLOCKED", reason, next_actions=["set env_class to local|test|staging"])
         if a.get("example") == "red-packet":
+            a.setdefault("env_class", "test")
             sys.path.insert(0, os.path.join(core.ROOT, "examples", "red-packet"))
             from sut import serve as ex_serve, seed_packet_sql
             dbp = os.path.join(core.ROOT, "examples", "red-packet", "mcp-sut.db")
@@ -343,7 +433,7 @@ def dispatch(name, a):
         if not S.engine:
             return envelope("BLOCKED", "environment not prepared", next_actions=["prepare_environment"])
         if name == "run_regression":
-            S.results += core.run_regression(S.engine)
+            S.results += core.run_regression(S.engine, consumer_root=a.get("consumer_root") or S.consumer_root)
         else:
             if name == "run_case":
                 cases = [a["case"]]
@@ -375,6 +465,7 @@ def dispatch(name, a):
                         failures=fails[:30], evidence=[S.ev.dir],
                         next_actions=["add_regression_case"] if fails else ["final_gate"])
     if name == "run_schema_tests":
+        S.require_schema = a.get("required", S.require_schema)
         S.ev = S.ev or core.Evidence()
         pid = 1
         for row in S.results:
@@ -403,7 +494,8 @@ def dispatch(name, a):
         return envelope(r["status"], json.dumps(r, ensure_ascii=False),
                         next_actions=["prepare_environment"] if r["status"] == "AVAILABLE" else [])
     if name == "add_regression_case":
-        return envelope("PASS", f"registry size {core.add_regression_case(a['case'], a.get('reason',''))}")
+        root = a.get("consumer_root") or S.consumer_root
+        return envelope("PASS", f"registry size {core.add_regression_case(a['case'], a.get('reason',''), root)}")
     if name == "get_coverage":
         dims = {}
         for c in S.plan:
@@ -419,15 +511,34 @@ def dispatch(name, a):
     if name == "final_gate":
         if not S.results:
             return envelope("NOT_TESTED", "nothing executed — No Execution → No PASS")
+        runners = {}
+        if S.schema:
+            runners["schemathesis"] = S.schema.get("status", "NOT_RUN")
+        req = ["schemathesis"] if (S.require_schema or a.get("require_schema")) else []
         st, why = core.Gate.evaluate(S.results, S.facts.questions, S.facts.conflicts(),
-                                     floor=core.risk_floor(S.facts, S.hooks))
+                                     floor=core.risk_floor(S.facts, S.hooks),
+                                     runner_states=runners, required_runners=req)
         if st == "PASS" and S.schema and S.schema["status"] == "FAIL":
             st, why = "FAIL", "schemathesis findings unexplained（见 schema-tests-summary.txt）"   # §25 失败必须回分析
+        meta = {}
         if S.ev:
-            S.ev.write("gate.json", {"status": st, "why": why})
-        return envelope(st, why, evidence=[S.ev.dir] if S.ev else [])
+            from testmind.gate_meta import bind_pass_metadata, gate_is_stale
+            meta = bind_pass_metadata(S.ev.dir)
+            if st == "PASS" and gate_is_stale(meta):
+                st, why = "STALE", "git_head or pipeline_contract_hash changed since evidence bind"
+            S.ev.write("gate.json", {"status": st, "why": why, "runner_states": runners, **meta})
+            if S.task_id:
+                session_store.save_state(S.consumer_root or core.ROOT, S.task_id,
+                                         {"run_id": S.ev.run_id, "gate": st, "why": why, **meta})
+        return envelope(st, why, evidence=[S.ev.dir] if S.ev else [],
+                        evidence_manifest_hash=meta.get("evidence_manifest_hash", ""))
     if name == "run_pipeline":
-        steps = [("prepare_environment", a.get("env", {})),
+        env = dict(a.get("env", {}))
+        if a.get("env_class"):
+            env.setdefault("env_class", a["env_class"])
+        if a.get("openapi"):
+            S.require_schema = True
+        steps = [("prepare_environment", env),
                  ("collect_facts", {k: a[k] for k in ("schema_sql", "openapi") if k in a}),
                  ("build_contract", a.get("contract", {})),
                  ("plan_tests", a.get("plan", {})),
@@ -442,6 +553,8 @@ def dispatch(name, a):
             if r["status"] in ("BLOCKED", "TOOL_ERROR"):
                 break
         final = out[-1]
+        if S.task_id and final[1] in ("PASS", "FAIL", "HOLD", "BLOCKED", "NOT_TESTED"):
+            dispatch("export_handoff", {})
         return envelope(final[1], " | ".join(f"{t}:{s}" for t, s, _ in out), steps=out,
                         evidence=[S.ev.dir] if S.ev else [],
                         next_actions=["add_regression_case"] if final[1] == "FAIL" else ["cleanup"])
@@ -480,7 +593,8 @@ def main():
                 "serverInfo": {"name": "testmind", "version": "1.1.0"}}}
         elif m == "tools/list":
             resp = {"jsonrpc": "2.0", "id": req.get("id"), "result": {"tools": [
-                {"name": n, "description": d["desc"], "inputSchema": HELP} for n, d in TOOLS.items()]}}
+                {"name": n, "description": d["desc"],
+                 "inputSchema": tool_schemas.input_schema(n)} for n, d in TOOLS.items()]}}
         elif m == "tools/call":
             p = req.get("params", {})
             try:

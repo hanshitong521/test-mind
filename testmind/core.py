@@ -7,7 +7,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 REPORTS = os.path.join(ROOT, "reports")
 REGISTRY = os.path.join(ROOT, "regression", "cases.json")
 
-LEGAL_STATUS = {"PASS", "FAIL", "HOLD", "BLOCKED", "NOT_TESTED", "TOOL_ERROR", "SKIPPED_WITH_REASON"}
+LEGAL_STATUS = {"PASS", "FAIL", "HOLD", "BLOCKED", "NOT_TESTED", "TOOL_ERROR", "SKIPPED_WITH_REASON", "STALE"}
 
 
 def now():
@@ -26,13 +26,13 @@ class Facts:
         self.questions = questions or []
         self.unparsed = []            # 看到了却没译成事实的约束：静默漏抽必须可见
 
-    def add(self, topic, statement, source, status="CONFIRMED", derived_from=()):
+    def add(self, topic, statement, source, status="CONFIRMED", derived_from=(), **meta):
         assert source, f"fact without source: {topic}"      # 无来源=拒绝，不猜
         for x in self.f:                                     # 同一约束被两处看到 ≠ 两条事实
             if (x["topic"], x["statement"], x["source"]) == (topic, statement, source):
                 return x["id"]
         self.f.append({"id": f"F{len(self.f)+1:03d}", "topic": topic, "statement": statement,
-                       "source": source, "status": status, "derived_from": list(derived_from)})
+                       "source": source, "status": status, "derived_from": list(derived_from), **meta})
         return self.f[-1]["id"]
 
     def absorb(self, other):
@@ -56,8 +56,10 @@ class Facts:
         assert src, "add_facts: source required (No Requirement → No Expected)"
         for fid in item.get("derived_from", []):
             assert any(x["id"] == fid for x in self.f), f"unknown derived_from {fid}"
+        extra = {k: v for k, v in item.items()
+                 if k not in ("topic", "statement", "source", "status", "derived_from", "id")}
         return self.add(item["topic"], item["statement"], src,
-                        item.get("status", "CONFIRMED"), item.get("derived_from", []))
+                        item.get("status", "CONFIRMED"), item.get("derived_from", []), **extra)
 
     def derive(self, topic, statement, *fact_ids):
         for fid in fact_ids:
@@ -317,11 +319,11 @@ class FactResolver:
                 node = cur
             return node if isinstance(node, dict) else {}
 
-        def prop(key, ps, required):
+        def prop(key, ps, required, **fmeta):
             ps = deref(ps)
             t = ps.get("type") or ("array" if "items" in ps else None)
             if "enum" in ps:
-                facts.add(f"enum:api:{key}", f"api:{key} in {','.join(str(v) for v in ps['enum'])}", source)
+                facts.add(f"enum:api:{key}", f"api:{key} in {','.join(str(v) for v in ps['enum'])}", source, **fmeta)
             if t == "integer":
                 lo = hi = None
                 if "minimum" in ps:
@@ -333,34 +335,36 @@ class FactResolver:
                 if "exclusiveMaximum" in ps:
                     hi = int(ps["exclusiveMaximum"]) - 1
                 if lo is not None or hi is not None:
-                    facts.add(f"range:api:{key}", f"api:{key} between " + _open(lo, hi, "{} and {}".format), source)
+                    facts.add(f"range:api:{key}", f"api:{key} between " + _open(lo, hi, "{} and {}".format),
+                              source, **fmeta)
             elif any(k in ps for k in ("minimum", "maximum", "exclusiveMinimum", "exclusiveMaximum")):
                 facts.unparsed.append({"source": source, "what": f"{key} 非整数边界未取样",
                                        "text": json.dumps({k: ps[k] for k in ps if k.endswith("imum") or k.endswith("al")},
                                                           default=str)[:160]})
             if "pattern" in ps:
-                facts.add(f"pattern:api:{key}", f"api:{key} matches {ps['pattern']}", source)
+                facts.add(f"pattern:api:{key}", f"api:{key} matches {ps['pattern']}", source, **fmeta)
             if "minLength" in ps or "maxLength" in ps:
                 facts.add(f"len:api:{key}",
-                          f"api:{key} length between {ps.get('minLength', 0)} and {ps.get('maxLength', 'None')}", source)
+                          f"api:{key} length between {ps.get('minLength', 0)} and {ps.get('maxLength', 'None')}",
+                          source, **fmeta)
             for k in ("oneOf", "anyOf", "allOf", "not", "const", "multipleOf", "minItems", "maxItems", "uniqueItems",
                       "format", "readOnly", "writeOnly", "additionalProperties", "contains", "propertyNames"):
                 if k in ps:
                     facts.unparsed.append({"source": source, "what": f"{key}.{k} 未取样",
                                            "text": json.dumps(ps[k], default=str)[:120]})
             if required:
-                facts.add(f"required:{key}", f"{key} required", source)
+                facts.add(f"required:{key}", f"{key} required", source, **fmeta)
             return ps
 
-        def walk(sch, name, prefix=""):
+        def walk(sch, name, prefix="", **fmeta):
             sch = deref(sch)
             req = set(sch.get("required") or [])
             for p, ps in (sch.get("properties") or {}).items():
-                sub = prop(f"{name}.{prefix}{p}", ps, p in req)
+                sub = prop(f"{name}.{prefix}{p}", ps, p in req, **fmeta)
                 if sub.get("type") == "object" or "properties" in sub:
-                    walk(sub, name, prefix=f"{prefix}{p}.")
+                    walk(sub, name, prefix=f"{prefix}{p}.", **fmeta)
             for r in req:
-                facts.add(f"required:{name}.{prefix}{r}", f"{name}.{prefix}{r} required", source)
+                facts.add(f"required:{name}.{prefix}{r}", f"{name}.{prefix}{r} required", source, **fmeta)
 
         for path, item in (spec.get("paths") or {}).items():
             if not isinstance(item, dict):
@@ -369,16 +373,16 @@ class FactResolver:
                 if verb.lower() not in ("get", "put", "post", "patch", "delete", "options", "trace") or not isinstance(op, dict):
                     continue
                 name = op.get("operationId") or f"{verb.upper()} {path}"
+                fmeta = {"operation_id": name, "http_path": path, "http_method": verb.upper()}
                 for prm in op.get("parameters") or []:
                     prm = deref(prm)
                     if prm.get("in") in ("path", "query", "header", "cookie"):
-                        # 路径/查询参数的负例要改 URL，planner 只会改 body —— 记事实但不产 body 负例
                         facts.add(f"paramrequired:{name}.{prm.get('name')}",
-                                  f"{name}.{prm.get('name')} required ({prm.get('in')} param)", source)
+                                  f"{name}.{prm.get('name')} required ({prm.get('in')} param)", source, **fmeta)
                 for media in ((op.get("requestBody") or {}).get("content") or {}).values():
-                    walk(deref((media or {}).get("schema") or {}), name)
+                    walk(deref((media or {}).get("schema") or {}), name, **fmeta)
         for name, sch in (spec.get("components", {}).get("schemas") or {}).items():
-            walk(sch, name)
+            walk(sch, name, scope="components")
         return facts
 
 
@@ -497,8 +501,57 @@ def red_packet_hooks(seed_fn):
         "tick_path": "/scheduler/tick",
         "table": "red_packet",
         "log_table": "grant_log",
+        "relation_field": "influencer_id",
+        "idempotency_field": "idem_key",
         "status": {"created": 0, "running": 1, "paused": 2, "finished": 3},
     }
+
+
+def _relation_field_name(rel_fact, hooks):
+    if hooks.get("relation_field"):
+        return hooks["relation_field"]
+    tail = rel_fact["topic"].split(":", 1)[-1]
+    if tail.endswith("_id"):
+        return tail
+    if tail in ("fk", "relation"):
+        m = re.search(r"(\w+_id)", rel_fact["statement"])
+        return m.group(1) if m else None
+    return f"{tail}_id"
+
+
+def _idempotency_field_name(facts, hooks):
+    if hooks.get("idempotency_field"):
+        return hooks["idempotency_field"]
+    for f in _fact_prefix(facts, "idempotency:"):
+        parts = f["topic"].split(":")
+        if len(parts) >= 3 and parts[2]:
+            return parts[2]
+        low = f["statement"].lower()
+        for key in ("idem_key", "request_id", "idempotency_key", "client_request_id"):
+            if key in low:
+                return key
+    return None
+
+
+def facts_for_operation(facts, operation_id=None, path=None, method=None):
+    """按 operation 过滤事实；components 全局 schema 在指定 operation 时不参与规划。"""
+    if not operation_id and not path:
+        return facts
+    scoped = []
+    for x in facts.f:
+        if x.get("scope") == "components":
+            continue
+        op = x.get("operation_id")
+        if op is not None:
+            if operation_id and op == operation_id:
+                scoped.append(x)
+            elif path and x.get("http_path") == path:
+                scoped.append(x)
+            continue
+        scoped.append(x)
+    out = Facts(items=scoped, questions=facts.questions)
+    out.unparsed = list(facts.unparsed)
+    return out
 
 
 def plan_risk_cases(facts, base_input, method="POST", path="/", ok_status=201, bad_status=400,
@@ -520,29 +573,34 @@ def plan_risk_cases(facts, base_input, method="POST", path="/", ok_status=201, b
     if rel:
         src = rel[0]["id"]
         miss = _stmt_code(rel[0]["statement"], 404)
-        cases.append({"id": "P0-REL-missing", "category": "RELATION", "priority": "P0", "source": src,
-                      "action": {"kind": "http", "method": method, "path": path,
-                                 "body": {**base_input, "influencer_id": 999}},
-                      "expected": {"http": miss, "db_no_write": True}})
-        for f in _fact_prefix(facts, "seed:"):
-            for num, label in re.findall(r"(\d+)=([^\s]+)", f["statement"]):
-                n = int(num)
-                if "禁用" in label or "已删" in label:
-                    cid = "P0-REL-disabled" if "禁用" in label else "P0-REL-deleted"
-                    cases.append({"id": cid, "category": "RELATION", "priority": "P0", "source": f["id"],
-                                  "action": {"kind": "http", "method": method, "path": path,
-                                             "body": {**base_input, "influencer_id": n}},
-                                  "expected": {"http": miss, "db_no_write": True}})
-                elif "他公司" in label or "carol" in label.lower():
-                    cases.append({"id": "P0-REL-carol", "category": "RELATION", "priority": "P0", "source": f["id"],
-                                  "action": {"kind": "http", "method": method, "path": path,
-                                             "body": {**base_input, "influencer_id": n}},
-                                  "expected": {"http": ok_status}})
+        rel_field = _relation_field_name(rel[0], hooks)
+        if rel_field:
+            miss_val = hooks.get("relation_missing_value", 999)
+            cases.append({"id": "P0-REL-missing", "category": "RELATION", "priority": "P0", "source": src,
+                          "action": {"kind": "http", "method": method, "path": path,
+                                     "body": {**base_input, rel_field: miss_val}},
+                          "expected": {"http": miss, "db_no_write": True}})
+            for f in _fact_prefix(facts, "seed:"):
+                for num, label in re.findall(r"(\d+)=([^\s]+)", f["statement"]):
+                    n = int(num)
+                    if "禁用" in label or "已删" in label:
+                        cid = "P0-REL-disabled" if "禁用" in label else "P0-REL-deleted"
+                        cases.append({"id": cid, "category": "RELATION", "priority": "P0", "source": f["id"],
+                                      "action": {"kind": "http", "method": method, "path": path,
+                                                 "body": {**base_input, rel_field: n}},
+                                      "expected": {"http": miss, "db_no_write": True}})
+                    elif "他公司" in label or "carol" in label.lower():
+                        cases.append({"id": "P0-REL-carol", "category": "RELATION", "priority": "P0", "source": f["id"],
+                                      "action": {"kind": "http", "method": method, "path": path,
+                                                 "body": {**base_input, rel_field: n}},
+                                      "expected": {"http": ok_status}})
 
     for f in _fact_prefix(facts, "idempotency:"):
         replay = _stmt_code(f["statement"], 200)
+        uniq_col = _idempotency_field_name(facts, hooks)
+        if not uniq_col:
+            continue
         key = f"idem-{run_id}"
-        uniq_col = "idem_key"
         body = {**base_input, uniq_col: key}
         dbc = []
         if table:
@@ -1318,7 +1376,8 @@ class Evidence:
         os.makedirs(self.dir, exist_ok=True)
 
     def write(self, rel, obj):
-        return self.text(rel, json.dumps(obj, ensure_ascii=False, indent=2, default=str))
+        from testmind.secrets import redact_obj
+        return self.text(rel, json.dumps(redact_obj(obj), ensure_ascii=False, indent=2, default=str))
 
     def text(self, rel, s):
         p = os.path.join(self.dir, rel)
@@ -1330,8 +1389,14 @@ class Evidence:
 
 class Gate:
     @staticmethod
-    def evaluate(results, unknowns, conflicts, floor=()):
-        """地板：只要有一条 case 什么都没验，整体终判就不是 PASS。SKIPPED_WITH_REASON 是诚实让步，放行。"""
+    def evaluate(results, unknowns, conflicts, floor=(), runner_states=None, required_runners=()):
+        """地板：只要有一条 case 什么都没验，整体终判就不是 PASS。
+        required_runners 中 SKIPPED/UNAVAILABLE → NOT_TESTED（不许假绿）。"""
+        runner_states = runner_states or {}
+        for name in required_runners or ():
+            st = runner_states.get(name, "NOT_RUN")
+            if st in ("SKIPPED_WITH_REASON", "UNAVAILABLE", "NOT_RUN", "BLOCKED", "TOOL_ERROR"):
+                return "NOT_TESTED", f"required runner {name} not satisfied: {st}"
         for r in results:
             assert r["status"] in LEGAL_STATUS, f"illegal status {r['status']}"
         if conflicts:
@@ -1380,25 +1445,35 @@ def risk_floor(facts, hooks=None):
 
 # ───────────────────── 7. Regression Registry (§27) ─────────────────────
 
-def load_registry():
-    if os.path.exists(REGISTRY):
-        with open(REGISTRY, encoding="utf-8") as fh:
+def registry_path(consumer_root=None):
+    if consumer_root:
+        p = os.path.join(consumer_root, ".testmind", "regression", "cases.json")
+        os.makedirs(os.path.dirname(p), exist_ok=True)
+        return p
+    return REGISTRY
+
+
+def load_registry(consumer_root=None):
+    path = registry_path(consumer_root)
+    if os.path.exists(path):
+        with open(path, encoding="utf-8") as fh:
             return json.load(fh)
     return []
 
 
-def add_regression_case(case, reason):
-    cases = load_registry()
+def add_regression_case(case, reason, consumer_root=None):
+    path = registry_path(consumer_root)
+    cases = load_registry(consumer_root)
     case = {**case, "regression_reason": reason, "added": utc()}
     cases = [c for c in cases if c["id"] != case["id"]] + [case]
-    os.makedirs(os.path.dirname(REGISTRY), exist_ok=True)
-    with open(REGISTRY, "w", encoding="utf-8") as fh:
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8") as fh:
         json.dump(cases, fh, ensure_ascii=False, indent=2)
     return len(cases)
 
 
-def run_regression(engine):
-    return [engine.run(c) for c in load_registry()]
+def run_regression(engine, consumer_root=None):
+    return [engine.run(c) for c in load_registry(consumer_root)]
 
 
 # ───────────────────── 8. Runner availability + Schemathesis + Karate + Docker ─────────────────────
@@ -1406,16 +1481,27 @@ def run_regression(engine):
 #   CLI=C:\Docker\bin\docker\docker.exe，daemon=VirtualBox docker-vm 经 NAT 转发 tcp://127.0.0.1:2375，
 #   VM 不随开机自启（探测失败先 VBoxManage startvm "docker-vm" --type headless）。
 
-DOCKER_CLI = os.environ.get("TESTMIND_DOCKER_CLI", r"C:\Docker\bin\docker\docker.exe")
+DOCKER_CLI = os.environ.get("TESTMIND_DOCKER_CLI", "")
 DOCKER_HOST = os.environ.get("DOCKER_HOST", "tcp://127.0.0.1:2375")
 JDK17 = os.environ.get("TESTMIND_JDK17", r"E:\jdk17\extracted\jdk-17.0.18+8\bin\java.exe")
 KARATE_LIB = os.path.join(ROOT, "tools", "karate", "lib")
 
 
 def docker(*args, timeout=600):
-    cli = DOCKER_CLI if os.path.exists(DOCKER_CLI) else "docker"
+    cli = DOCKER_CLI
+    if not cli:
+        cli = "docker"
+    elif os.path.isfile(cli) is False and cli not in ("docker", "false", "/bin/false"):
+        cli = "docker"
+    if cli in ("false", "/bin/false"):
+        return subprocess.CompletedProcess(args=cli, returncode=1, stdout="", stderr="docker disabled")
     env = {**os.environ, "DOCKER_HOST": DOCKER_HOST}
-    return subprocess.run([cli, *args], capture_output=True, text=True, timeout=timeout, env=env)
+    try:
+        return subprocess.run([cli, *args], capture_output=True, text=True, timeout=timeout, env=env)
+    except FileNotFoundError:
+        return subprocess.CompletedProcess(args=cli, returncode=127, stdout="", stderr="docker cli not found")
+    except subprocess.TimeoutExpired:
+        return subprocess.CompletedProcess(args=cli, returncode=124, stdout="", stderr="docker timeout")
 
 
 def java11plus():
@@ -1433,8 +1519,12 @@ def java11plus():
 
 def docker_provision(image, name, host_port, container_port=None, env=None):
     """Testcontainers 语义（create→use→destroy）的 stdlib 实现：幂等起一次性测试容器。"""
-    if docker("version", timeout=25).returncode != 0:
-        return {"status": "BLOCKED", "reason": f"docker daemon unreachable at {DOCKER_HOST}"}
+    dv = docker("version", timeout=25)
+    if dv.returncode != 0:
+        reason = (dv.stderr or dv.stdout or "unavailable").strip()
+        if "not found" in reason or dv.returncode == 127:
+            return {"status": "SKIPPED_WITH_REASON", "reason": reason, "runner": "docker"}
+        return {"status": "BLOCKED", "reason": f"docker daemon unreachable at {DOCKER_HOST}: {reason[-200:]}"}
     exist = docker("ps", "-a", "--filter", f"name=^/{name}$", "--format", "{{.Names}}")
     if name in (exist.stdout or ""):
         docker("rm", "-f", name)

@@ -73,6 +73,14 @@ class TestPlanner(unittest.TestCase):
         self.assertTrue(all(c["action"]["kind"] == "http" for c in plan))
         self.assertTrue(any(c["id"].startswith("P1-TYP-amount_cents-") for c in plan))
 
+    def test_plan_risk_uses_relation_topic_field_not_influencer_hardcode(self):
+        f = core.Facts()
+        f.add("relation:warehouse", "仓库不存在返回 404", "spec")
+        risk = core.plan_risk_cases(f, {"sku": "A", "warehouse_id": 1}, path="/stock", run_id="t2")
+        rel = next(c for c in risk if c["id"] == "P0-REL-missing")
+        self.assertIn("warehouse_id", rel["action"]["body"])
+        self.assertNotIn("influencer_id", rel["action"]["body"])
+
     def test_plan_risk_without_hooks_skips_fixture_p0(self):
         f = core.FactResolver.from_schema_sql(DDL, "s")
         f.add("idempotency:create", "idem_key 重复创建返回 200", "s")

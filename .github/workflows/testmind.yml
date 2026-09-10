@@ -1,0 +1,37 @@
+name: testmind
+
+on:
+  push:
+    paths:
+      - "test-Mind/**"
+      - "shared/scripts/peak-gate-lib.mjs"
+  pull_request:
+    paths:
+      - "test-Mind/**"
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python-version: ["3.11", "3.12"]
+    defaults:
+      run:
+        working-directory: test-Mind
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Unit tests
+        run: python -m unittest discover -s tests -v
+      - name: Peak gate (TM0–TM9, subprocess timeouts in peak-gate.mjs)
+        run: node scripts/peak-gate.mjs
+        env:
+          TESTMIND_DOCKER_CLI: /bin/false
+        if: runner.os == 'Linux'
+      - name: Peak verify (Windows — unittest + gate)
+        run: python scripts/run_peak_verify.py
+        if: runner.os == 'Windows'

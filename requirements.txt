@@ -1,0 +1,2 @@
+# Optional runtime adapters (stdlib-only core works without these)
+pymysql>=1.1.0; extra == "mysql"

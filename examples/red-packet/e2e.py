@@ -262,8 +262,12 @@ def finish(ev, facts, conflicts, results, status, why="", schema=None, coverage_
     counts = {}
     for r in results:
         counts[r["status"]] = counts.get(r["status"], 0) + 1
+    from testmind.gate_meta import bind_pass_metadata
+    meta = bind_pass_metadata(ev.dir)
     report = {
         "run_id": ev.run_id, "final": status, "why": why, "utc": core.utc(),
+        "scope": "红包创建/领取/状态迁移 API（examples/red-packet 靶场）；P0：金额、超发、状态机、幂等、并发、依赖故障。",
+        **meta,
         "facts_confirmed": sum(1 for f in facts.f if f["status"] == "CONFIRMED"),
         "facts_derived": sum(1 for f in facts.f if f["status"] == "DERIVED"),
         "unknowns": [q for q in facts.questions if q.get("state") == "USER_REQUIRED"],

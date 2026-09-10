@@ -1,49 +1,44 @@
-# testmind/report.py — Final Report 生成（§55：逐项作答）
+# testmind/report.py — 通用 Final Report（§55）；领域文案由 report["scope"] 注入
 def write_final_report(ev, report, results):
-    c = report["counts"]
-    st = report["final"]
+    c = report.get("counts") or {}
+    st = report.get("final", "NOT_TESTED")
+    scope = report.get("scope") or report.get("target_summary") or "API + DB 对拍（由 facts/contract 驱动）"
+    cats = report.get("categories") or sorted({r.get("category", r["id"].split("-")[0]) for r in results})
     lines = [
-        f"# TestMind Final Report — run {report['run_id']}",
+        f"# TestMind Final Report — run {report.get('run_id', '')}",
         "",
-        f"**FINAL = {st}**  ({report.get('why','')})",
+        f"**FINAL = {st}**  ({report.get('why', '')})",
         "",
         "## 什么被测了 / 为什么",
-        "红包创建/领取/状态迁移 API。金额、超发、状态机、幂等、并发、外部依赖全属 P0 风险面。",
+        scope,
         "",
         "## 规则来源",
-        f"- CONFIRMED：{report['facts_confirmed']} 条（schema SQL / OpenAPI / 代码，见 questions.json）",
-        f"- DERIVED：{report['facts_derived']} 条",
-        f"- 问题引擎：自答 {len(report.get('questions_selfanswered', []))} 条，遗留 USER_REQUIRED {len(report['unknowns'])} 条",
-        f"- CONFLICT：{len(report['conflicts'])} 条",
+        f"- CONFIRMED：{report.get('facts_confirmed', 0)} 条",
+        f"- DERIVED：{report.get('facts_derived', 0)} 条",
+        f"- USER_REQUIRED 遗留：{len(report.get('unknowns', []))} 条",
+        f"- CONFLICT：{len(report.get('conflicts', []))} 条",
+        f"- unparsed 约束：{len(report.get('unparsed', []))} 条",
         "",
         "## 执行与结果",
-        "- 全部 case 经 HTTP 打真实 SUT 进程；DB before/after/diff 逐 case 存证",
-        f"- PASS {c.get('PASS',0)} / FAIL {c.get('FAIL',0)} / BLOCKED {c.get('BLOCKED',0)} / "
-        f"SKIPPED_WITH_REASON {c.get('SKIPPED_WITH_REASON',0)}",
+        "- case 经 HTTP/sequence/concurrent/fault 真实执行；DB before/after/diff 逐 case 存证（若已连接 DB）",
+        f"- PASS {c.get('PASS', 0)} / FAIL {c.get('FAIL', 0)} / BLOCKED {c.get('BLOCKED', 0)} / "
+        f"SKIPPED_WITH_REASON {c.get('SKIPPED_WITH_REASON', 0)}",
         "",
         "## 覆盖维度",
-        f"- case 类别：{', '.join(report.get('categories', []))}",
-        ("- 行覆盖率（coverage.py，SUT 进程内）：" + str(report.get("coverage_pct")) + "%，明细 coverage.txt"
-         if report.get("coverage_pct") is not None else "- 行覆盖率：coverage 库不可用 → NOT_TESTED"),
-        "- 时间边界（含闰日 2024-02-29/次日，X-Test-Now 可控时钟）；状态机合法链+非法链+软删后读；"
-        "定时任务四态（未到/到点/重复tick/PAUSED）CAS 防重派；"
-        "故障四态（503/超时/拒连/坏JSON，经 FaultProxy）且 502 时 grant_log 零写入；负例禁写库断言；回归 Registry",
+        f"- case 类别：{', '.join(cats) if cats else 'n/a'}",
+        ("- 行覆盖率：" + str(report.get("coverage_pct")) + "%（coverage.txt）"
+         if report.get("coverage_pct") is not None else "- 行覆盖率：NOT_TESTED"),
         "",
         "## Runner 可用性",
-        *[f"- {k}: {v}" for k, v in report["runner_availability"].items()],
+        *[f"- {k}: {v}" for k, v in (report.get("runner_availability") or {}).items()],
         "",
         "## FAIL 明细",
-        *([f"- {r['id']}: {str(r.get('detail'))[:200]}" for r in results if r["status"] == "FAIL"] or ["- 无"]),
+        *([f"- {r['id']}: {str(r.get('detail'))[:200]}" for r in results if r.get("status") == "FAIL"] or ["- 无"]),
         "",
-        "## 证据", f"- {report['evidence_dir']}",
-        "",
-        "## 未测项（诚实记录）",
-        "- 时区/夏令时窗口：SUT 时钟为 unix epoch 秒、业务无时区语义 → 无事实支撑，NOT_TESTED（闰日/跨年已测）",
-        "- L2 历史样本（Keploy）：无生产流量可录，接口未启用",
-        "- schemathesis 为独立进程打 HTTP，不计入 SUT 行覆盖；JaCoCo 仅适用 Java SUT（本机无）",
-        "",
-        "## 真实缺陷",
-        "- 本轮执行 FAIL=0；开发期间经 TestMind 闭环抓到并修复 11 个缺陷（清单见 docs/FINAL_REPORT.md）",
+        "## 证据与绑定",
+        f"- 目录：{report.get('evidence_dir', ev.dir if ev else '')}",
+        f"- manifest_hash：{report.get('evidence_manifest_hash', '')}",
+        f"- git_head：{report.get('git_head', '')}",
         "",
         "## 结论",
         f"{st}：{'允许交付' if st == 'PASS' else '不允许交付（见上）'}",

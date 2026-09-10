@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "testmind"
+version = "1.2.0"
+description = "TestMind VERIFY kernel — fact-driven API/DB testing"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.optional-dependencies]
+mysql = ["pymysql>=1.1.0"]
+dev = ["coverage>=7.0"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["testmind*"]

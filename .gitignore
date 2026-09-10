@@ -2,6 +2,7 @@ __pycache__/
 *.pyc
 reports/
 target/
+examples/**/.testmind/
 .hypothesis/
 .schemathesis/
 examples/red-packet/*.db
