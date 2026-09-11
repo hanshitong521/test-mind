@@ -12,6 +12,8 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # (名称, 命令, 超时秒)
 STEPS = [
     ("unittest", [sys.executable, "-m", "unittest", "discover", "-s", "tests", "-q"], 600),
+    # INV-005 信封契约（纯函数、毫秒级）：先跑，信封不合法就不必再花 900s 跑全门
+    ("gate-envelope", ["node", "--test", os.path.join("scripts", "test_peak_gate_envelope.mjs")], 120),
     ("peak-gate", ["node", os.path.join("scripts", "peak-gate.mjs")], 900),
 ]
 

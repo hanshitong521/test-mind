@@ -1,6 +1,6 @@
 # examples/red-packet/sut.py — 被测系统(SUT)：红包创建/领取
 # ponytail: stdlib-only demo SUT；真实项目由 TestMind 对用户代码执行，本文件只提供复杂业务靶子
-import json, sqlite3, threading, time, uuid
+import json, sqlite3, threading, time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 SCHEMA_SQL = """
@@ -73,7 +73,9 @@ OPENAPI = {
             "type": "object", "required": ["name", "amount_cents", "quantity", "influencer_id", "created_by"],
             "properties": {
                 "name": {"type": "string", "minLength": 1, "maxLength": 50,
-                         "pattern": "^[^\\u0000-\\u001f\\u007f]*\\S[^\\u0000-\\u001f\\u007f]*$"},
+                         # 注意：不能写成 `...*\\S...*` —— \S 本身能吞掉控制字符（\x16 不是空白），
+                         # 会让整条 pattern 形同虚设（a\x16b 照样匹配）。必须显式排除空白+控制字符。
+                         "pattern": "^[^\\u0000-\\u001f\\u007f]*[^\\s\\u0000-\\u001f\\u007f][^\\u0000-\\u001f\\u007f]*$"},
                 "amount_cents": {"type": "integer", "minimum": 1, "maximum": 100000},
                 "quantity": {"type": "integer", "minimum": 1, "maximum": 1000},
                 "influencer_id": {"type": "integer", "minimum": 1, "maximum": 2147483647},
@@ -276,6 +278,22 @@ def make_handler(sut):
             self.end_headers()
             self.wfile.write(data)
 
+        def _norm_path(self):
+            """RFC 9112 §3.2.2：服务端**必须**接受 absolute-form 请求目标。
+
+            实测 schemathesis 的 Unsupported-methods / Coverage 阶段会直接发
+            `GET http://127.0.0.1:18101/red-packets`（absolute-form），若拿 self.path 做精确
+            匹配则全部落到 404 —— 假缺陷（SUT 明明支持 405+Allow 却被判"404 不是 405"）。
+            统一归一化到 origin-form（并剥离 query，本 SUT 无 query 参数）。
+            """
+            p = self.path or "/"
+            if p.startswith(("http://", "https://")):
+                from urllib.parse import urlsplit
+                p = urlsplit(p).path or "/"
+            if "?" in p:
+                p = p.split("?", 1)[0]
+            return p or "/"
+
         def _read_body(self):
             """完整消费请求体（Content-Length 或 chunked），保护同连接下一个请求不被污染。"""
             if "chunked" in (self.headers.get("Transfer-Encoding") or "").lower():
@@ -291,6 +309,7 @@ def make_handler(sut):
             return self.rfile.read(int(self.headers.get("Content-Length", 0) or 0))
 
         def do_POST(self):
+            self.path = self._norm_path()              # absolute-form → origin-form（RFC 9112）
             raw = self._read_body()                    # 先读尽请求体再路由，防破坏 keep-alive
             if self.path == "/risk":
                 return self._reply(200, {"ok": True})   # 风控上游 = POST（FaultProxy ok 模式透传目标）
@@ -332,6 +351,7 @@ def make_handler(sut):
                 self._reply(404, {"error": "route"})
 
         def do_GET(self):
+            self.path = self._norm_path()             # absolute-form → origin-form（RFC 9112）
             self._read_body()                         # GET-with-body 也要饮尽（fuzz 实测发过 -d 的 GET）
             if self.path == "/openapi.json":
                 self._reply(200, OPENAPI)
@@ -348,6 +368,7 @@ def make_handler(sut):
 
         # 未在 OpenAPI 声明的方法必须 405 + 精确 Allow 头（RFC 9110，schemathesis 抓过缺失/不匹配）
         def _unsupported(self):
+            self.path = self._norm_path()              # absolute-form → origin-form（RFC 9112）
             self._read_body()                         # 任何带 body 的方法都先饮尽，防污染 keep-alive 连接
             allow = "GET" if self.path == "/openapi.json" else "POST"
             self.send_response(405)

@@ -42,7 +42,8 @@ def materialize_secrets(profile, secrets_dir=None):
     if secrets_dir and os.path.isdir(secrets_dir):
         for fn in os.listdir(secrets_dir):
             if fn.endswith(".json"):
-                vault[fn[:-5]] = json.load(open(os.path.join(secrets_dir, fn), encoding="utf-8"))
+                with open(os.path.join(secrets_dir, fn), encoding="utf-8") as fh:
+                    vault[fn[:-5]] = json.load(fh)
     resolved = {}
     for k, ref in refs.items():
         key = str(ref).split(":")[-1] if ":" in str(ref) else str(ref)

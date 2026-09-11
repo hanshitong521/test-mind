@@ -8,11 +8,11 @@ $fail = @()
 
 Write-Host "== 1/5 unit + red team =="
 python -m unittest discover -s tests 2>$null | Out-Null
-if ($LASTEXITCODE -ne 0) { $fail += "unit" } else { Write-Host "unit+redteam: OK (32 tests)" }
+if ($LASTEXITCODE -ne 0) { $fail += "unit" } else { Write-Host "unit+redteam: OK" }
 
 Write-Host "== 2/5 red-packet e2e closed loop =="
 python examples/red-packet/e2e.py 2>$null | Out-Null
-if ($LASTEXITCODE -ne 0) { $fail += "e2e" } else { Write-Host "e2e: FINAL=PASS (85 cases incl. scheduler/leap-day/time/state/fault/concurrency + coverage + schemathesis)" }
+if ($LASTEXITCODE -ne 0) { $fail += "e2e" } else { Write-Host "e2e: FINAL=PASS (red-packet closed loop incl. boundary/negative/state/fault/concurrency + schemathesis)" }
 
 Write-Host "== 3/5 MCP full-chain smoke (run_pipeline) =="
 python scripts/mcp_smoke.py 2>$null | Select-Object -Last 5

@@ -27,11 +27,13 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Unit tests
         run: python -m unittest discover -s tests -v
+      - name: Gate envelope contract (INV-005)
+        run: node --test scripts/test_peak_gate_envelope.mjs
       - name: Peak gate (TM0–TM9, subprocess timeouts in peak-gate.mjs)
         run: node scripts/peak-gate.mjs
         env:
           TESTMIND_DOCKER_CLI: /bin/false
         if: runner.os == 'Linux'
-      - name: Peak verify (Windows — unittest + gate)
+      - name: Peak verify (Windows — unittest + envelope + gate)
         run: python scripts/run_peak_verify.py
         if: runner.os == 'Windows'

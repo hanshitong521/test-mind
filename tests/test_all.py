@@ -1,6 +1,6 @@
 # tests/test_all.py — TestMind 自测 + 红队自测（§47/§48）
 # 运行: python -m unittest discover -s tests   (从 testmind/ 目录)
-import os, sys, time, unittest
+import os, sys, unittest
 
 TM = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, TM)
@@ -136,15 +136,18 @@ class TestRegressionRegistry(unittest.TestCase):
         case = {"id": "T-REG-1", "action": {"kind": "http", "path": "/"}, "expected": {"http": 200}}
         try:
             n1 = core.add_regression_case(case, "test")
+            added1 = next(c["added"] for c in core.load_registry() if c["id"] == "T-REG-1")
             core.add_regression_case(case, "test")            # 同 id 覆盖不重复
             reg = core.load_registry()
             self.assertGreaterEqual(n1, 1)
             self.assertEqual(sum(1 for c in reg if c["id"] == "T-REG-1"), 1)
+            # 幂等：重复登记不得刷新 added —— 否则每次跑 e2e 都在 registry 里制造"只有时间戳变了"的假脏 diff
+            self.assertEqual(next(c["added"] for c in reg if c["id"] == "T-REG-1"), added1)
         finally:
             reg = [c for c in core.load_registry() if c["id"] != "T-REG-1"]
             with open(core.REGISTRY, "w", encoding="utf-8") as fh:
                 import json
-                json.dump(reg, fh)
+                json.dump(reg, fh, ensure_ascii=False, indent=2)   # 与 add_regression_case 同格式，避免测试自身改脏文件
 
 
 class TestSUTBusiness(unittest.TestCase):
@@ -504,6 +507,45 @@ class TestSQLPerf(unittest.TestCase):
             mcp.S.ev = None
         self.assertEqual(mcp.dispatch("final_gate", {})["status"], "NOT_TESTED")
         self.assertEqual(mcp.S.results, [])
+
+
+class TestRunnerFailOpen(unittest.TestCase):
+    """§平台：本机没装 docker/java（CI/macOS 常态）时，runner 探测必须 fail-open，绝不崩闭环。"""
+
+    def test_missing_docker_binary_degrades_not_crashes(self):
+        import subprocess as sp
+        real = sp.run
+
+        def fake_no_docker(cmd, *a, **k):
+            if isinstance(cmd, list) and cmd and str(cmd[0]).endswith("docker"):
+                raise FileNotFoundError(2, "No such file or directory", "docker")
+            return real(cmd, *a, **k)
+        sp.run = fake_no_docker
+        try:
+            r = core.scan_runners()                      # 不抛异常 = 修复生效
+            self.assertIsInstance(r, dict)
+            self.assertIn("testcontainers", r)
+            # schemathesis 入口：runner 不可用 → SKIPPED_WITH_REASON，不是 TOOL_ERROR。
+            # 用 runner_prefix 显式注入"不可用"，不依赖本机 PATH 上恰好有没有 schemathesis
+            # （原写法在装了 schemathesis 的开发机上必红、Linux CI 必绿 = 环境耦合 flaky）。
+            ev = core.Evidence()
+            s = core.run_schema_tests("http://127.0.0.1:9/openapi.json", ev, runner_prefix=None)
+            if core.resolve_schemathesis() is None:      # 本机真无 runner：走同一降级路径
+                self.assertEqual(s["status"], "SKIPPED_WITH_REASON")
+            else:                                        # 本机有 runner：显式无 runner 也必须降级
+                s = core.run_schema_tests("http://127.0.0.1:9/openapi.json", core.Evidence(),
+                                          runner_prefix=[])
+                self.assertEqual(s["status"], "SKIPPED_WITH_REASON")
+            # 不可执行的 runner 配置同样是三态降级，绝不抛异常/崩闭环
+            s_bad = core.run_schema_tests("http://127.0.0.1:9/openapi.json", core.Evidence(),
+                                          runner_prefix=["definitely-not-a-real-schemathesis-binary"])
+            self.assertEqual(s_bad["status"], "SKIPPED_WITH_REASON")
+            # 闭环终判不因缺 runner 而失败：全绿 case 依旧 PASS
+            results = [{"id": "P0-HAPPY", "priority": "P0", "status": "PASS", "evidence": "cases/x/"}]
+            st, _ = core.Gate.evaluate(results, [], [])
+            self.assertEqual(st, "PASS")
+        finally:
+            sp.run = real
 
 
 if __name__ == "__main__":

@@ -1,1 +1,176 @@
-[{"id": "REG-004-int64-poison", "category": "REGRESSION", "priority": "P0", "source": "\u7f3a\u9677:int64 \u6ea2\u51fa\u6b8b\u7559\u4e8b\u52a1\u6bd2\u5316\u5171\u4eab\u8fde\u63a5\u56de\u5f52\u951a", "action": {"kind": "sequence", "steps": [{"path": "/red-packets", "body": {"name": "\u5f00\u5de5\u7ea2\u5305", "amount_cents": 100, "quantity": 10, "influencer_id": 1, "created_by": 1, "unlimited": false, "scheduled_at": 1000000000000000000000000000000}, "expect_status": 400}, {"path": "/red-packets", "body": {"name": "\u5f00\u5de5\u7ea2\u5305", "amount_cents": 100, "quantity": 10, "influencer_id": 1, "created_by": 1, "unlimited": false}, "expect_status": 201, "save": {"pid": "id"}}]}, "expected": {"db_rows": [{"table": "red_packet", "key": {"id": "{{pid}}"}, "subset": {"status": 0, "quantity": 10, "scheduled_at": null}}]}, "regression_reason": "\u8d8a\u754c\u65f6\u95f4\u6233\u70b8\u6389 INSERT \u540e\u4e8b\u52a1\u672a\u56de\u6eda \u2192 \u6b64\u540e\u6240\u6709\u521b\u5efa\u8bf7\u6c42\u5168\u5d29\u7684\u7f3a\u9677\u6c38\u4e45\u56de\u5f52", "added": "2026-08-30T10:46:17.282777+00:00"}, {"id": "REG-001-oversell", "category": "REGRESSION", "priority": "P0", "source": "\u7f3a\u9677:\u8d85\u53d1\u4fee\u590d\u56de\u5f52\u951a", "setup": ["DELETE FROM grant_log WHERE packet_id=9501", "DELETE FROM red_packet WHERE id=9501", "INSERT INTO red_packet(id,name,amount_cents,quantity,influencer_id,unlimited,expiry_ts,scheduled_at,status,remaining,created_by,created_at,updated_at,deleted) VALUES(9501,'ANCHOR-9501',100,5,1,0,NULL,NULL,1,5,1,0,0,0)"], "action": {"kind": "concurrent", "count": 12, "path": "/red-packets/9501/grant"}, "expected": {"success_count": 5, "db_count": [{"sql": "SELECT COUNT(*) FROM grant_log WHERE packet_id=9501", "expect": 5}, {"sql": "SELECT remaining FROM red_packet WHERE id=9501", "expect": 0}]}, "regression_reason": "grant \u5356\u5149\u4ecd\u5199 grant_log \u7684\u7f3a\u9677\u6c38\u4e45\u56de\u5f52", "added": "2026-09-10T12:28:52.704145+00:00"}, {"id": "REG-002-insert-align", "category": "REGRESSION", "priority": "P0", "source": "\u7f3a\u9677:INSERT\u5217\u9519\u4f4d\u4fee\u590d\u56de\u5f52\u951a", "action": {"kind": "http", "method": "POST", "path": "/red-packets", "body": {"name": "\u5f00\u5de5\u7ea2\u5305", "amount_cents": 100, "quantity": 7, "influencer_id": 1, "created_by": 1, "unlimited": false}, "save": {"pid": "id"}}, "expected": {"http": 201, "db_rows": [{"table": "red_packet", "key": {"id": "{{pid}}"}, "subset": {"remaining": 7, "quantity": 7, "status": 0}}]}, "regression_reason": "INSERT \u5217\u9519\u4f4d\u5bfc\u81f4 remaining \u6052 0 \u7684\u7f3a\u9677\u6c38\u4e45\u56de\u5f52", "added": "2026-09-10T12:28:52.718893+00:00"}, {"id": "REG-003-sched-cas", "category": "REGRESSION", "priority": "P0", "source": "\u8c03\u5ea6CAS\u5b88\u536b\u56de\u5f52\u951a", "setup": ["DELETE FROM grant_log WHERE packet_id=9503", "DELETE FROM red_packet WHERE id=9503", "INSERT INTO red_packet(id,name,amount_cents,quantity,influencer_id,unlimited,expiry_ts,scheduled_at,status,remaining,created_by,created_at,updated_at,deleted) VALUES(9503,'ANCHOR-9503',100,5,1,0,NULL,3000000000,1,5,1,0,0,0)"], "action": {"kind": "sequence", "steps": [{"path": "/scheduler/tick", "expect_status": 200, "headers": {"X-Test-Now": "3000000000"}}, {"path": "/scheduler/tick", "expect_status": 200, "headers": {"X-Test-Now": "3000000000"}}, {"path": "/scheduler/tick", "expect_status": 200, "headers": {"X-Test-Now": "3000000000"}}]}, "expected": {"db_count": [{"sql": "SELECT COUNT(*) FROM grant_log WHERE packet_id=9503", "expect": 1}]}, "regression_reason": "\u91cd\u590d/\u591a\u5b9e\u4f8b tick \u91cd\u6d3e\u9632\u62a4\u6c38\u4e45\u56de\u5f52\uff08\u00a720\uff09", "added": "2026-09-10T12:28:52.720980+00:00"}]
+[
+  {
+    "id": "REG-004-int64-poison",
+    "category": "REGRESSION",
+    "priority": "P0",
+    "source": "缺陷:int64 溢出残留事务毒化共享连接回归锚",
+    "action": {
+      "kind": "sequence",
+      "steps": [
+        {
+          "path": "/red-packets",
+          "body": {
+            "name": "开工红包",
+            "amount_cents": 100,
+            "quantity": 10,
+            "influencer_id": 1,
+            "created_by": 1,
+            "unlimited": false,
+            "scheduled_at": 1000000000000000000000000000000
+          },
+          "expect_status": 400
+        },
+        {
+          "path": "/red-packets",
+          "body": {
+            "name": "开工红包",
+            "amount_cents": 100,
+            "quantity": 10,
+            "influencer_id": 1,
+            "created_by": 1,
+            "unlimited": false
+          },
+          "expect_status": 201,
+          "save": {
+            "pid": "id"
+          }
+        }
+      ]
+    },
+    "expected": {
+      "db_rows": [
+        {
+          "table": "red_packet",
+          "key": {
+            "id": "{{pid}}"
+          },
+          "subset": {
+            "status": 0,
+            "quantity": 10,
+            "scheduled_at": null
+          }
+        }
+      ]
+    },
+    "regression_reason": "越界时间戳炸掉 INSERT 后事务未回滚 → 此后所有创建请求全崩的缺陷永久回归",
+    "added": "2026-08-30T10:46:17.282777+00:00"
+  },
+  {
+    "id": "REG-001-oversell",
+    "category": "REGRESSION",
+    "priority": "P0",
+    "source": "缺陷:超发修复回归锚",
+    "setup": [
+      "DELETE FROM grant_log WHERE packet_id=9501",
+      "DELETE FROM red_packet WHERE id=9501",
+      "INSERT INTO red_packet(id,name,amount_cents,quantity,influencer_id,unlimited,expiry_ts,scheduled_at,status,remaining,created_by,created_at,updated_at,deleted) VALUES(9501,'ANCHOR-9501',100,5,1,0,NULL,NULL,1,5,1,0,0,0)"
+    ],
+    "action": {
+      "kind": "concurrent",
+      "count": 12,
+      "path": "/red-packets/9501/grant"
+    },
+    "expected": {
+      "success_count": 5,
+      "db_count": [
+        {
+          "sql": "SELECT COUNT(*) FROM grant_log WHERE packet_id=9501",
+          "expect": 5
+        },
+        {
+          "sql": "SELECT remaining FROM red_packet WHERE id=9501",
+          "expect": 0
+        }
+      ]
+    },
+    "regression_reason": "grant 卖光仍写 grant_log 的缺陷永久回归",
+    "added": "2026-09-10T14:17:13.055630+00:00"
+  },
+  {
+    "id": "REG-002-insert-align",
+    "category": "REGRESSION",
+    "priority": "P0",
+    "source": "缺陷:INSERT列错位修复回归锚",
+    "action": {
+      "kind": "http",
+      "method": "POST",
+      "path": "/red-packets",
+      "body": {
+        "name": "开工红包",
+        "amount_cents": 100,
+        "quantity": 7,
+        "influencer_id": 1,
+        "created_by": 1,
+        "unlimited": false
+      },
+      "save": {
+        "pid": "id"
+      }
+    },
+    "expected": {
+      "http": 201,
+      "db_rows": [
+        {
+          "table": "red_packet",
+          "key": {
+            "id": "{{pid}}"
+          },
+          "subset": {
+            "remaining": 7,
+            "quantity": 7,
+            "status": 0
+          }
+        }
+      ]
+    },
+    "regression_reason": "INSERT 列错位导致 remaining 恒 0 的缺陷永久回归",
+    "added": "2026-09-10T14:17:13.095514+00:00"
+  },
+  {
+    "id": "REG-003-sched-cas",
+    "category": "REGRESSION",
+    "priority": "P0",
+    "source": "调度CAS守卫回归锚",
+    "setup": [
+      "DELETE FROM grant_log WHERE packet_id=9503",
+      "DELETE FROM red_packet WHERE id=9503",
+      "INSERT INTO red_packet(id,name,amount_cents,quantity,influencer_id,unlimited,expiry_ts,scheduled_at,status,remaining,created_by,created_at,updated_at,deleted) VALUES(9503,'ANCHOR-9503',100,5,1,0,NULL,3000000000,1,5,1,0,0,0)"
+    ],
+    "action": {
+      "kind": "sequence",
+      "steps": [
+        {
+          "path": "/scheduler/tick",
+          "expect_status": 200,
+          "headers": {
+            "X-Test-Now": "3000000000"
+          }
+        },
+        {
+          "path": "/scheduler/tick",
+          "expect_status": 200,
+          "headers": {
+            "X-Test-Now": "3000000000"
+          }
+        },
+        {
+          "path": "/scheduler/tick",
+          "expect_status": 200,
+          "headers": {
+            "X-Test-Now": "3000000000"
+          }
+        }
+      ]
+    },
+    "expected": {
+      "db_count": [
+        {
+          "sql": "SELECT COUNT(*) FROM grant_log WHERE packet_id=9503",
+          "expect": 1
+        }
+      ]
+    },
+    "regression_reason": "重复/多实例 tick 重派防护永久回归（§20）",
+    "added": "2026-09-10T14:17:13.099830+00:00"
+  }
+]

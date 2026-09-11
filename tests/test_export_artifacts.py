@@ -7,7 +7,7 @@ import unittest
 TM = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, TM)
 
-from testmind import core, export, mcp
+from testmind import core, mcp
 
 
 class TestExportArtifacts(unittest.TestCase):
@@ -33,7 +33,8 @@ class TestExportArtifacts(unittest.TestCase):
         task_dir = os.path.join(root, ".testmind", "tasks", "EXP-001")
         for name in ("TEST_PLAN.md", "TEST_CASES.yaml", "EVIDENCE_MANIFEST.json", "TEST_REPORT.md", "FAILURE_BUNDLE.json"):
             self.assertTrue(os.path.isfile(os.path.join(task_dir, name)), name)
-        manifest = json.load(open(os.path.join(task_dir, "EVIDENCE_MANIFEST.json"), encoding="utf-8"))
+        with open(os.path.join(task_dir, "EVIDENCE_MANIFEST.json"), encoding="utf-8") as fh:
+            manifest = json.load(fh)
         self.assertIn("manifest_hash", manifest)
 
 

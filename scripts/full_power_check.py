@@ -1,6 +1,6 @@
 # scripts/full_power_check.py — 满血实证：Karate 真实执行 + Docker 现供真 MySQL 对拍
 # 手册口径：Docker CLI=C:\Docker\bin\docker\docker.exe，daemon=tcp://127.0.0.1:2375（docker-vm 需已启动）
-import json, os, sys, time, uuid
+import json, os, sys, time
 
 TM = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, TM)

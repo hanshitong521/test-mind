@@ -1,14 +1,11 @@
-import json
 import os
 import sys
-import tempfile
 import unittest
 
 TM = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, TM)
 
 from testmind import core
-from testmind.secrets import redact_obj
 
 
 class TestSecrets(unittest.TestCase):
@@ -19,7 +16,8 @@ class TestSecrets(unittest.TestCase):
             "body": {"password": "plain-pass-789"},
         }
         ev.write("cases/x/request.json", payload)
-        raw = open(os.path.join(ev.dir, "cases/x/request.json"), encoding="utf-8").read()
+        with open(os.path.join(ev.dir, "cases/x/request.json"), encoding="utf-8") as fh:
+            raw = fh.read()
         self.assertNotIn("tm-secret-123", raw)
         self.assertNotIn("api-key-456", raw)
         self.assertNotIn("plain-pass-789", raw)
@@ -30,7 +28,9 @@ class TestSecrets(unittest.TestCase):
         leaked = False
         for dp, _, fns in os.walk(ev.dir):
             for fn in fns:
-                if "leak-me-999" in open(os.path.join(dp, fn), encoding="utf-8").read():
+                with open(os.path.join(dp, fn), encoding="utf-8") as fh:
+                    txt = fh.read()
+                if "leak-me-999" in txt:
                     leaked = True
         self.assertFalse(leaked)
 

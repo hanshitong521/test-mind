@@ -6,6 +6,15 @@ examples/**/.testmind/
 .hypothesis/
 .schemathesis/
 examples/red-packet/*.db
+examples/flash-sale/*.db
+examples/flash-sale/rt-*.db
+examples/flash-sale/regression.json
+benchmark/playwright/node_modules/
+benchmark/playwright/test-results/
+benchmark/playwright/playwright-report/
+benchmark/playwright/results.json
+benchmark/playwright/buggy.db
+benchmark/playwright/real.db
 *.log
 # 85 个第三方 jar 共 91M，由 tools/karate/pom.xml 可复现：
 #   mvn -f tools/karate/pom.xml dependency:copy-dependencies -DoutputDirectory=lib

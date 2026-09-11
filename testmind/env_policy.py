@@ -1,6 +1,5 @@
 # 环境类别与 allowlist（P0 最小 Gate）
 import re
-from urllib.parse import urlparse
 
 PRODUCTION_HINTS = re.compile(
     r"(prod(uction)?\.|\.prod\.|live\.|api\.(?!test)|生产)",

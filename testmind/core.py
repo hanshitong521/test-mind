@@ -1453,18 +1453,23 @@ def registry_path(consumer_root=None):
     return REGISTRY
 
 
-def load_registry(consumer_root=None):
-    path = registry_path(consumer_root)
+def load_registry(consumer_root=None, path=None):
+    if path is None:
+        path = registry_path(consumer_root)
     if os.path.exists(path):
         with open(path, encoding="utf-8") as fh:
             return json.load(fh)
     return []
 
 
-def add_regression_case(case, reason, consumer_root=None):
-    path = registry_path(consumer_root)
-    cases = load_registry(consumer_root)
-    case = {**case, "regression_reason": reason, "added": utc()}
+def add_regression_case(case, reason, consumer_root=None, path=None):
+    if path is None:
+        path = registry_path(consumer_root)
+    cases = load_registry(consumer_root=None, path=path)
+    prev = next((c for c in cases if c["id"] == case["id"]), None)
+    # 幂等：同一 case 重复登记不刷新 added —— 否则每次跑 e2e 都会在 regression/cases.json 里
+    # 制造"只有时间戳变了"的假脏 diff，污染工作区并干扰"变更即证据"的判读。
+    case = {**case, "regression_reason": reason, "added": (prev or {}).get("added") or utc()}
     cases = [c for c in cases if c["id"] != case["id"]] + [case]
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w", encoding="utf-8") as fh:
@@ -1472,8 +1477,12 @@ def add_regression_case(case, reason, consumer_root=None):
     return len(cases)
 
 
-def run_regression(engine, consumer_root=None):
-    return [engine.run(c) for c in load_registry(consumer_root)]
+def run_regression(engine, consumer_root=None, path=None):
+    if path is None:
+        cases = load_registry(consumer_root)
+    else:
+        cases = load_registry(path=path)
+    return [engine.run(c) for c in cases]
 
 
 # ───────────────────── 8. Runner availability + Schemathesis + Karate + Docker ─────────────────────
@@ -1486,22 +1495,47 @@ DOCKER_HOST = os.environ.get("DOCKER_HOST", "tcp://127.0.0.1:2375")
 JDK17 = os.environ.get("TESTMIND_JDK17", r"E:\jdk17\extracted\jdk-17.0.18+8\bin\java.exe")
 KARATE_LIB = os.path.join(ROOT, "tools", "karate", "lib")
 
+# 手册口径的 CLI 落点（可能装了但不在 PATH）：探测失败时按此兜底，
+# 否则会出现"明明装了却报 docker cli not found"的误导性诊断（定位问题被带偏）。
+DOCKER_CLI_CANDIDATES = (
+    r"C:\Docker\bin\docker\docker.exe",
+    r"C:\Program Files\Docker\Docker\resources\bin\docker.exe",
+)
+
+
+def resolve_docker_cli():
+    """解析 docker CLI：env 显式配置 → PATH → 手册固定落点。
+    探测与执行共用同一解析（与 resolve_schemathesis 同纪律），杜绝"报 not found 其实装了"。"""
+    from shutil import which
+
+    cli = (DOCKER_CLI or "").strip()
+    if cli in ("false", "/bin/false"):
+        return cli
+    if cli:
+        return cli if (os.path.isfile(cli) or cli == "docker") else "docker"
+    found = which("docker")
+    if found:
+        return found
+    for cand in DOCKER_CLI_CANDIDATES:
+        if os.path.isfile(cand):
+            return cand
+    return "docker"
+
 
 def docker(*args, timeout=600):
-    cli = DOCKER_CLI
-    if not cli:
-        cli = "docker"
-    elif os.path.isfile(cli) is False and cli not in ("docker", "false", "/bin/false"):
-        cli = "docker"
+    cli = resolve_docker_cli()
     if cli in ("false", "/bin/false"):
         return subprocess.CompletedProcess(args=cli, returncode=1, stdout="", stderr="docker disabled")
     env = {**os.environ, "DOCKER_HOST": DOCKER_HOST}
     try:
         return subprocess.run([cli, *args], capture_output=True, text=True, timeout=timeout, env=env)
-    except FileNotFoundError:
-        return subprocess.CompletedProcess(args=cli, returncode=127, stdout="", stderr="docker cli not found")
     except subprocess.TimeoutExpired:
         return subprocess.CompletedProcess(args=cli, returncode=124, stdout="", stderr="docker timeout")
+    except FileNotFoundError:
+        # 明确区分「CLI 不存在」与「daemon 不可达」：127 + not found → SKIPPED_WITH_REASON 而非 BLOCKED
+        return subprocess.CompletedProcess(args=cli, returncode=127, stdout="", stderr="docker cli not found")
+    except OSError as e:   # 本机没装 docker（CI/macOS 常态）：fail-open，探测=UNAVAILABLE，绝不崩闭环
+        return subprocess.CompletedProcess([cli, *args], returncode=1, stdout="", stderr=repr(e))
 
 
 def java11plus():
@@ -1560,6 +1594,69 @@ def run_karate(feature, evidence):
             "exit_code": r.returncode, "evidence": evidence.dir + "/karate-raw.log"}
 
 
+SCHEMATHESIS_ENV = "TESTMIND_SCHEMATHESIS"
+
+
+def resolve_schemathesis():
+    """解析 schemathesis 的命令前缀（list）。**探测与执行共用同一解析**。
+
+    以前 scan_runners 用 `py -3` 探测、run_schema_tests 却用一个写死的
+    `C:\\Users\\...\\Python311\\Scripts\\schemathesis.exe` 执行 —— 探针说 AVAILABLE、
+    执行却可能落在另一条路径/另一个解释器上，是"假绿"的温床（P1-02 / INV-001）。
+
+    优先级：
+      1. TESTMIND_SCHEMATHESIS —— 显式配置（指解释器 → `-m schemathesis`，指 exe → 直接跑）
+      2. PATH 上的 schemathesis
+      3. 当前解释器旁边的 console script（pip 装出的入口，最可靠）
+      4. 当前解释器可 import → `-m schemathesis` / console entry point 函数
+    全不可用 → None（诚实三态：UNAVAILABLE → SKIPPED_WITH_REASON）。本函数不含任何绝对路径。
+
+    NOTE: schemathesis 4.x 删掉了 `__main__.py`（`python -m schemathesis` 直接
+    ModuleNotFoundError），入口只在 console script `schemathesis`（entry point
+    `schemathesis.cli:schemathesis`）。因此"当前解释器可 import"必须退到 entry point 函数，
+    并优先解析解释器同级的 Scripts/bin，否则装了 schemathesis 的机器仍会被误判 UNAVAILABLE。
+    """
+    from shutil import which
+
+    cands = []
+    env = (os.environ.get(SCHEMATHESIS_ENV) or "").strip()
+    if env:
+        if os.path.basename(env).lower().startswith("python"):
+            cands.append([env, "-m", "schemathesis"])
+        else:
+            cands.append([env])
+    found = which("schemathesis")
+    if found:
+        cands.append([found])
+    # 当前解释器同级的 console script：Windows <prefix>/Scripts/schemathesis.exe，
+    # POSIX <prefix>/bin/schemathesis。用 sys.executable 推导，不写死绝对路径。
+    bindir = "Scripts" if os.name == "nt" else "bin"
+    ext = ".exe" if os.name == "nt" else ""
+    sibling = os.path.join(os.path.dirname(sys.executable), bindir, "schemathesis" + ext)
+    if os.path.exists(sibling):
+        cands.append([sibling])
+    # 退路：schemathesis 4.x 无 __main__，直接调 console entry point 函数
+    # （argv 语义与 `-m` 一致：Click 读 sys.argv[1:]）。
+    cands.append([sys.executable, "-c",
+                  "from schemathesis.cli import schemathesis as _s; _s()"])
+
+    for c in cands:
+        try:
+            r = subprocess.run(c + ["--version"], capture_output=True, timeout=60)
+        except Exception:
+            continue
+        if r.returncode == 0:
+            return c
+    return None
+
+
+def schemathesis_status():
+    c = resolve_schemathesis()
+    if not c:
+        return f"UNAVAILABLE(no schemathesis for {os.path.basename(sys.executable)}; set {SCHEMATHESIS_ENV})"
+    return "AVAILABLE(" + " ".join(c) + ")"
+
+
 def scan_runners():
     def probe(cmd, note):
         try:
@@ -1571,7 +1668,7 @@ def scan_runners():
     jars = os.path.isdir(KARATE_LIB) and any(f.endswith(".jar") for f in os.listdir(KARATE_LIB))
     d = docker("version", timeout=25).returncode == 0
     return {
-        "schemathesis": probe("py -3 -c \"import schemathesis\"", "not installed for py3.11"),
+        "schemathesis": schemathesis_status(),
         "karate": "AVAILABLE(jdk17+tools/karate/lib)" if (j and jars) else
                   "UNAVAILABLE(" + ("no jars" if j else "no java11+ under E:/jdk17; jars pending") + ")",
         "testcontainers": f"AVAILABLE(docker@{DOCKER_HOST}) via docker_provision" if d
@@ -1588,26 +1685,34 @@ def scan_runners():
     }
 
 
-def run_schema_tests(openapi_url, evidence, max_examples=30, path_params=None):
-    st = scan_runners()["schemathesis"]
-    if st != "AVAILABLE":
-        return {"status": "SKIPPED_WITH_REASON", "runner": "schemathesis", "reason": st}
-    exe = os.path.join(os.path.dirname(sys.executable), "schemathesis.exe")
-    if not os.path.exists(exe):
-        exe = r"C:\Users\Administrator\AppData\Local\Programs\Python\Python311\Scripts\schemathesis.exe"
+def run_schema_tests(openapi_url, evidence, max_examples=30, path_params=None, runner_prefix=None):
+    """Schemathesis 契约/负例测试。
+
+    runner_prefix 可显式注入命令前缀（测试/CI 用），默认走 resolve_schemathesis()——
+    与 scan_runners 同一解析，确保"探测怎么说、执行就怎么跑"。
+    """
+    prefix = runner_prefix if runner_prefix is not None else resolve_schemathesis()
+    if not prefix:
+        return {"status": "SKIPPED_WITH_REASON", "runner": "schemathesis",
+                "reason": schemathesis_status()}
     params = path_params or {"id": 1, "action": "start"}
     cfg = os.path.join(evidence.dir, "schemathesis.toml")
     lines = ["headers = { Connection = \"close\" }", "", "[parameters]"]
     for k, v in params.items():
         lines.append(f'{k} = {v!r}' if isinstance(v, str) else f"{k} = {v}")
     evidence.text("schemathesis.toml", "\n".join(lines) + "\n")
-    cmd = (f'"{exe}" --config-file "{cfg}" run "{openapi_url}" --max-examples {max_examples} '
-           f'--workers 1 --header "Connection: close" --generation-allow-x00 false')
+    # list 形式（不经 shell）：跨平台、无盘符、无引号转义歧义（INV-001）
+    cmd = [*prefix, "--config-file", cfg, "run", openapi_url,
+           "--max-examples", str(max_examples), "--workers", "1",
+           "--header", "Connection: close", "--generation-allow-x00", "false"]
     env = {**os.environ, "PYTHONIOENCODING": "utf-8"}
     try:
-        r = subprocess.run(cmd, capture_output=True, timeout=600, shell=True, env=env)
+        r = subprocess.run(cmd, capture_output=True, timeout=600, env=env)
     except subprocess.TimeoutExpired:
         return {"status": "TOOL_ERROR", "runner": "schemathesis", "reason": "timeout"}
+    except OSError as e:   # 配置的 runner 不可执行：三态降级，绝不崩闭环
+        return {"status": "SKIPPED_WITH_REASON", "runner": "schemathesis",
+                "reason": f"runner not executable: {e}"}
     out = (r.stdout or b"").decode("utf-8", "replace")
     evidence.text("schema-tests-raw.log", out + "\n" + (r.stderr or b"").decode("utf-8", "replace"))
     return {"status": "PASS" if r.returncode == 0 else "FAIL", "runner": "schemathesis",

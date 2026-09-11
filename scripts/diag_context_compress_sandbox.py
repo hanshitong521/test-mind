@@ -113,8 +113,10 @@ def main():
     c = C(TM)
     d1 = os.path.join(TM, ".probe-tmp", "s1.md")
     d2 = os.path.join(TM, ".probe-tmp", "s2.md")
-    open(d1, "w", encoding="utf-8").write("# S1\n\nQUOKA_TOKEN_ONE unique alpha content here.\n")
-    open(d2, "w", encoding="utf-8").write("# S2\n\nWALRS_TOKEN_TWO unique beta content here.\n")
+    with open(d1, "w", encoding="utf-8") as f:
+        f.write("# S1\n\nQUOKA_TOKEN_ONE unique alpha content here.\n")
+    with open(d2, "w", encoding="utf-8") as f:
+        f.write("# S2\n\nWALRS_TOKEN_TWO unique beta content here.\n")
     print("  index s1 ->", c.call("index", {"path": d1, "source": "SrcOne"})[0].strip()[:110])
     print("  index s2 ->", c.call("index", {"path": d2, "source": "SrcTwo"})[0].strip()[:110])
     o, _ = c.call("search", {"queries": ["QUOKA_TOKEN_ONE", "WALRS_TOKEN_TWO"]})

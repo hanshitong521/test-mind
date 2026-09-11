@@ -130,7 +130,8 @@ def run_peak_simulation(consumer_root=None, port=None, task_bundle_path=None):
         if mcp.S.ev and api_key:
             for dp, _, fns in os.walk(mcp.S.ev.dir):
                 for fn in fns:
-                    txt = open(os.path.join(dp, fn), encoding="utf-8", errors="ignore").read()
+                    with open(os.path.join(dp, fn), encoding="utf-8", errors="ignore") as fh:
+                        txt = fh.read()
                     if api_key in txt:
                         leak = True
         rep["secret_leak"] = leak

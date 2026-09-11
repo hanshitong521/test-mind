@@ -258,7 +258,11 @@ def dispatch(name, a):
         scoped = core.facts_for_operation(S.facts, operation_id=op, path=a.get("path"), method=a.get("method"))
         if a.get("schema_sql"):
             src = a["schema_sql"]
-            sql = open(src, encoding="utf-8").read() if os.path.exists(src) else src
+            if os.path.exists(src):
+                with open(src, encoding="utf-8") as fh:
+                    sql = fh.read()
+            else:
+                sql = src
             res = core.FactResolver.from_schema_sql(sql, str(a["schema_sql"])[:60])
             for x in res.f:
                 S.facts.f.append({**x, "id": f"F{len(S.facts.f)+1:03d}"})
@@ -266,10 +270,12 @@ def dispatch(name, a):
         if a.get("openapi"):
             spec = a["openapi"]
             if os.path.exists(spec):
-                spec = json.load(open(spec, encoding="utf-8"))
+                with open(spec, encoding="utf-8") as fh:
+                    spec = json.load(fh)
             elif str(spec).startswith("http"):
                 import urllib.request
-                spec = json.loads(urllib.request.urlopen(spec, timeout=20).read())
+                with urllib.request.urlopen(spec, timeout=20) as resp:
+                    spec = json.loads(resp.read())
             elif isinstance(spec, str):
                 spec = json.loads(spec)
             res = core.FactResolver.from_openapi(spec, str(a["openapi"])[:60])
@@ -331,7 +337,11 @@ def dispatch(name, a):
         if not a.get("schema_sql"):
             return envelope("BLOCKED", "schema_sql required (DDL 路径或内联)", next_actions=["collect_facts"])
         src = a["schema_sql"]
-        schema = open(src, encoding="utf-8").read() if os.path.exists(src) else src
+        if os.path.exists(src):
+            with open(src, encoding="utf-8") as fh:
+                schema = fh.read()
+        else:
+            schema = src
         rep = core.static_precheck(schema, a.get("statements", []))
         rep["fact_conflicts"] = S.facts.conflicts()
         S.ev = S.ev or core.Evidence()

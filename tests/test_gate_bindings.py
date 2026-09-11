@@ -27,8 +27,8 @@ class TestGateBindings(unittest.TestCase):
         mcp.S.ev.write("probe.json", {"ok": True})
         try:
             mcp.dispatch("final_gate", {})
-            gate = __import__("json").load(
-                open(os.path.join(mcp.S.ev.dir, "gate.json"), encoding="utf-8"))
+            with open(os.path.join(mcp.S.ev.dir, "gate.json"), encoding="utf-8") as fh:
+                gate = __import__("json").load(fh)
             self.assertTrue(gate.get("evidence_manifest_hash"))
             self.assertTrue(gate.get("git_head") or gate.get("measured_at"))
         finally:

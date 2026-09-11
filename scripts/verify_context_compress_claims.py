@@ -103,7 +103,8 @@ class C:
 
 
 def main():
-    cfg = json.load(open(MCP_JSON, encoding="utf-8"))
+    with open(MCP_JSON, encoding="utf-8") as fh:
+        cfg = json.load(fh)
     E = cfg["mcpServers"]["context-compress"]
     root = (E.get("env") or {}).get("CLAUDE_PROJECT_DIR", "")
     os.makedirs(TMP, exist_ok=True)

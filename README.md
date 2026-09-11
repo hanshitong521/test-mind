@@ -13,6 +13,23 @@ powershell -File scripts/verify.ps1         # 一键全量验证
 python testmind/mcp.py                      # MCP Server（stdio JSON-RPC, UTF-8）
 ```
 
+## 看板（只读，本机）
+
+```powershell
+python scripts/dashboard.py --open      # http://127.0.0.1:8901
+python scripts/dashboard.py --check     # 不起服务，只自检数据层
+```
+
+回答三个问题：**今天该处理什么 / 从哪个入口进 / 进来之后还要顺手测什么**。
+
+- **总览** —— 有效运行、门禁通过率（口径 `PASS/(PASS+FAIL)`，非判定态与空壳目录不进分母）、用例数、回归锚
+- **测试入口分类** —— 7 个入口覆盖全部 32 个 MCP 工具，每个入口点开是「举一反三」：一条现象该扩展出哪些测试维度，以及依据
+- **举一反三路由** —— 丢一句模糊需求（"用户付款成功但订单停在待支付"）指到入口；**没把握就不指**，空结果比乱指好
+- **资产库 / 项目动态** —— 回归锚、技能、规则、示例；`reports/` 时间线与近 30 天趋势
+- **测试纪律** —— 四条硬规则、状态词表、Q1–Q5 质量维度、10 类缺陷注入、故障注入五模式
+
+只读、零依赖、仅监听 `127.0.0.1`；不进 MCP 工具面（宿主 AI 用 `context_*`，人用看板）。
+
 ## 用 Cursor / Codex 测你自己的项目（三步）
 
 1. **喂事实** —— 宿主 AI 读你的代码/DDL/OpenAPI：文件类走 `collect_facts {schema_sql, openapi}`，代码规则走 `add_facts {facts:[{topic,statement,source}]}`（source 必填，无出处拒收）
@@ -39,6 +56,7 @@ python testmind/mcp.py                      # MCP Server（stdio JSON-RPC, UTF-8
 - `testmind/mcp.py` — 29 工具（§37 全 21 + add_facts/ask_user/answer_question/run_pipeline/generate_cases/run_scenario_tests/static_precheck/sql_perf_check 等），统一信封 `{status,summary,evidence,facts,unknowns,next_actions}`
 - `examples/red-packet/` — 演示 SUT（状态机/幂等/风控依赖/可控时钟）+ e2e 闭环
 - `skills/testmind/SKILL.md` — 测试纪律 + 接入三步法
+- `testmind/dashboard/` — 只读看板（`playbook` 知识层 / `aggregate` 数据层 / `server` + `index.html` 展示层），零依赖
 - `tests/test_all.py` — 自测（含红队：冲突阻断/无执行不 PASS/注错必 FAIL/假绿防线）
 - `regression/cases.json` / `reports/<run_id>/` — 回归锚 / 逐 case 证据
 

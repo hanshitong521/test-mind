@@ -20,6 +20,29 @@ REAL_POOL = os.path.join(MEMDIR, "shejiuPro.jsonl")
 FAILS = []
 
 
+def probe_term():
+    """从真实池里取一个必然存在的检索词。
+
+    硬编码 '口径' 会随池内容变更而假红（数据耦合 flaky：池里已无该词 → count=0）。
+    改成运行时从池里现取一个词，既保留"必须命中真实池、不是空壳"的标准，
+    又不依赖某条具体记忆恰好还在。
+    """
+    try:
+        with open(REAL_POOL, encoding="utf-8") as fh:
+            for line in fh:
+                line = line.strip()
+                if not line:
+                    continue
+                rec = json.loads(line)
+                for field in ("title", "memory"):
+                    t = (rec.get(field) or "").strip()
+                    if t:
+                        return t[:10]
+    except Exception:
+        pass
+    return None
+
+
 def check(name, ok, detail=""):
     print(("PASS  " if ok else "FAIL  ") + name + (("  | " + detail) if detail else ""))
     if not ok:
@@ -89,7 +112,8 @@ class Client:
 
 def main():
     print("=" * 78)
-    cfg = json.load(open(MCP_JSON, encoding="utf-8"))
+    with open(MCP_JSON, encoding="utf-8") as fh:
+        cfg = json.load(fh)
     servers = cfg["mcpServers"]
     check("R1 mcp.json 可解析，已注册 %d 个 server: %s"
           % (len(servers), ", ".join(sorted(servers))), "project-brain" in servers)
@@ -108,6 +132,8 @@ def main():
 
     c = Client(entry)
     try:
+        # 检索词从真实池现取（避免硬编码词随池内容变更而假红）；池为空才退回默认词
+        query = probe_term() or "口径"
         check("R4 initialize 握手成功", c.info.get("name") == "project-brain",
               json.dumps(c.info, ensure_ascii=False))
         tl = c.tools()
@@ -120,7 +146,7 @@ def main():
         for src, dst in pairs:
             # READ-ONLY alias proof: the response echoes the RESOLVED project_id.
             r = c.call("search_project_context",
-                       {"project_id": src.strip(), "query": "口径", "limit": 3})
+                       {"project_id": src.strip(), "query": query, "limit": 3})
             check("R7 别名生效：%s -> %s（返回值里的 project_id 已被解析）"
                   % (src.strip(), dst.strip()),
                   r.get("project_id") == dst.strip(),
@@ -129,12 +155,12 @@ def main():
             check("R8 %s 真的读到了共享池 %s 的真实记忆（不是空壳）"
                   % (src.strip(), dst.strip()),
                   r.get("count", 0) > 0,
-                  "count=%s doc_count=%s" % (r.get("count"), r.get("doc_count")))
+                  "count=%s doc_count=%s query=%r" % (r.get("count"), r.get("doc_count"), query))
 
         # NEGATIVE CONTROL: an id outside the alias map must NOT be rewritten.
         #   Without this, R7 would also pass if every id were flattened to shejiuPro.
         bogus = "zz-unaliased-probe"
-        rb = c.call("search_project_context", {"project_id": bogus, "query": "口径", "limit": 3})
+        rb = c.call("search_project_context", {"project_id": bogus, "query": query, "limit": 3})
         check("R9 注错对照：未配别名的 id 不被改写（仍返回自己，且报 unknown）",
               rb.get("project_id") == bogus
               and (rb.get("project") or {}).get("error") == "unknown project_id"
@@ -143,12 +169,12 @@ def main():
               % (rb.get("project_id"), (rb.get("project") or {}).get("error"), rb.get("count")))
 
         # Default-id fallback: empty project_id must land in the configured default.
-        rd = c.call("search_project_context", {"project_id": "", "query": "口径", "limit": 3})
+        rd = c.call("search_project_context", {"project_id": "", "query": query, "limit": 3})
         check("R10 空 project_id 落到 BRAIN_DEFAULT_PROJECT_ID=%s"
               % entry["env"]["BRAIN_DEFAULT_PROJECT_ID"],
               rd.get("project_id") == entry["env"]["BRAIN_DEFAULT_PROJECT_ID"]
               and rd.get("count", 0) > 0,
-              "project_id=%s count=%s" % (rd.get("project_id"), rd.get("count")))
+              "project_id=%s count=%s query=%r" % (rd.get("project_id"), rd.get("count"), query))
 
         # get_change_context must resolve the alias too (it is a separate code path).
         rc = c.call("get_change_context", {"project_id": pairs[0][0].strip(),

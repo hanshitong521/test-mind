@@ -28,7 +28,8 @@ class TestOpenAPIOperationScope(unittest.TestCase):
         self.assertTrue(any("amount_cents" in str(c) for c in plan))
 
     def test_generic_openapi_components_excluded(self):
-        spec = json.load(open(os.path.join(TM, "examples", "generic", "openapi.json"), encoding="utf-8"))
+        with open(os.path.join(TM, "examples", "generic", "openapi.json"), encoding="utf-8") as fh:
+            spec = json.load(fh)
         facts = FactResolver.from_openapi(spec, "generic/openapi.json")
         scoped = facts_for_operation(facts, operation_id="createStock")
         self.assertFalse(any("CreateRedPacketReq" in x["topic"] for x in scoped.f))

@@ -32,7 +32,8 @@ def scan_java_tree(root, max_files=500):
             path = os.path.join(dp, fn)
             rel = os.path.relpath(path, root).replace("\\", "/")
             try:
-                text = open(path, encoding="utf-8", errors="replace").read()
+                with open(path, encoding="utf-8", errors="replace") as fh:
+                    text = fh.read()
             except OSError:
                 continue
             cls = _CLASS.search(text)
