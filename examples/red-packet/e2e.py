@@ -1,4 +1,4 @@
-# examples/red-packet/e2e.py — 红包复杂业务闭环（全部使用 testmind 通用引擎，无本地执行逻辑）
+# examples/red-packet/e2e.py — 红包复杂业务闭环（V9 §11 已注入 12 个 Drift -> 边界 case）
 import json, os, sys
 
 TM = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -161,6 +161,77 @@ def special_cases(rid):
              {"path": "/red-packets/{{pid}}/delete", "expect_status": 200},
              {"path": "/red-packets/{{pid}}/grant", "expect_status": 404}]},
          "expected": {"db_rows": [{"table": "red_packet", "key": {"id": "{{pid}}"}, "subset": {"deleted": 1}}]}},
+
+
+
+        # ── V9 §11 Drift -> Regression Generator 注入（消除 v8_drift.json 的 3 个 DRIFT_MEDIUM）──
+        {"id": "P0-name-below-min", "category": "BOUNDARY", "priority": "P0",
+         "source": "drift:D-name", "regression_reason": "below min=1",
+         "action": {"kind": "http", "method": "POST", "path": "/red-packets", "body": {"name": "", "amount_cents": 100, "quantity": 1, "influencer_id": 1, "created_by": 1, "unlimited": False}},
+         "expected": {"http": 400, "db_no_write": True}},
+        {"id": "P0-name-at-min", "category": "BOUNDARY", "priority": "P1",
+         "source": "drift:D-name", "regression_reason": "at min=1",
+         "action": {"kind": "http", "method": "POST", "path": "/red-packets", "body": {"name": "x", "amount_cents": 100, "quantity": 1, "influencer_id": 1, "created_by": 1, "unlimited": False}},
+         "expected": {"http": 201}},
+        {"id": "P0-name-at-max", "category": "BOUNDARY", "priority": "P1",
+         "source": "drift:D-name", "regression_reason": "at max=50",
+         "action": {"kind": "http", "method": "POST", "path": "/red-packets", "body": {"name": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", "amount_cents": 100, "quantity": 1, "influencer_id": 1, "created_by": 1, "unlimited": False}},
+         "expected": {"http": 201}},
+        {"id": "P0-name-above-max", "category": "BOUNDARY", "priority": "P0",
+         "source": "drift:D-name", "regression_reason": "above max=50",
+         "action": {"kind": "http", "method": "POST", "path": "/red-packets", "body": {"name": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", "amount_cents": 100, "quantity": 1, "influencer_id": 1, "created_by": 1, "unlimited": False}},
+         "expected": {"http": 400, "db_no_write": True}},
+        {"id": "P0-amount_cents-below-min", "category": "BOUNDARY", "priority": "P0",
+         "source": "drift:D-amount_cents", "regression_reason": "below min=1",
+         "action": {"kind": "http", "method": "POST", "path": "/red-packets", "body": {"name": "边界", "amount_cents": 0, "quantity": 1, "influencer_id": 1, "created_by": 1, "unlimited": False}},
+         "expected": {"http": 400, "db_no_write": True}},
+        {"id": "P0-amount_cents-at-min", "category": "BOUNDARY", "priority": "P1",
+         "source": "drift:D-amount_cents", "regression_reason": "at min=1",
+         "action": {"kind": "http", "method": "POST", "path": "/red-packets", "body": {"name": "边界", "amount_cents": 1, "quantity": 1, "influencer_id": 1, "created_by": 1, "unlimited": False}},
+         "expected": {"http": 201}},
+        {"id": "P0-amount_cents-at-max", "category": "BOUNDARY", "priority": "P1",
+         "source": "drift:D-amount_cents", "regression_reason": "at max=100000",
+         "action": {"kind": "http", "method": "POST", "path": "/red-packets", "body": {"name": "边界", "amount_cents": 100000, "quantity": 1, "influencer_id": 1, "created_by": 1, "unlimited": False}},
+         "expected": {"http": 201}},
+        {"id": "P0-amount_cents-above-max", "category": "BOUNDARY", "priority": "P0",
+         "source": "drift:D-amount_cents", "regression_reason": "above max=100000",
+         "action": {"kind": "http", "method": "POST", "path": "/red-packets", "body": {"name": "边界", "amount_cents": 100001, "quantity": 1, "influencer_id": 1, "created_by": 1, "unlimited": False}},
+         "expected": {"http": 400, "db_no_write": True}},
+        {"id": "P0-quantity-below-min", "category": "BOUNDARY", "priority": "P0",
+         "source": "drift:D-quantity", "regression_reason": "below min=1",
+         "action": {"kind": "http", "method": "POST", "path": "/red-packets", "body": {"name": "边界", "amount_cents": 100, "quantity": 0, "influencer_id": 1, "created_by": 1, "unlimited": False}},
+         "expected": {"http": 400, "db_no_write": True}},
+        {"id": "P0-quantity-at-min", "category": "BOUNDARY", "priority": "P1",
+         "source": "drift:D-quantity", "regression_reason": "at min=1",
+         "action": {"kind": "http", "method": "POST", "path": "/red-packets", "body": {"name": "边界", "amount_cents": 100, "quantity": 1, "influencer_id": 1, "created_by": 1, "unlimited": False}},
+         "expected": {"http": 201}},
+        {"id": "P0-quantity-at-max", "category": "BOUNDARY", "priority": "P1",
+         "source": "drift:D-quantity", "regression_reason": "at max=1000",
+         "action": {"kind": "http", "method": "POST", "path": "/red-packets", "body": {"name": "边界", "amount_cents": 100, "quantity": 1000, "influencer_id": 1, "created_by": 1, "unlimited": False}},
+         "expected": {"http": 201}},
+        {"id": "P0-quantity-above-max", "category": "BOUNDARY", "priority": "P0",
+         "source": "drift:D-quantity", "regression_reason": "above max=1000",
+         "action": {"kind": "http", "method": "POST", "path": "/red-packets", "body": {"name": "边界", "amount_cents": 100, "quantity": 1001, "influencer_id": 1, "created_by": 1, "unlimited": False}},
+         "expected": {"http": 400, "db_no_write": True}},
+        # ── V9 §11 杀残余变异：MUT_OFF_BY_ONE & MUT_NEGATE ──
+        {"id": "P0-MUT-off-by-one-unlimited", "category": "MUTATION_KILL", "priority": "P0",
+         "source": "mutation:MUT_OFF_BY_ONE",
+         "regression_reason": "unlimited=True 时 remaining 必须 = 2147483647（变异会变 2147483646）",
+         "action": {"kind": "http", "method": "POST", "path": "/red-packets",
+                    "body": {"name": "无限包", "amount_cents": 100, "quantity": 5, "influencer_id": 1, "created_by": 1, "unlimited": True},
+                    "save": {"pid": "id"}},
+         "expected": {"http": 201,
+                      "db_rows": [{"table": "red_packet", "key": {"id": "{{pid}}"},
+                                   "subset": {"remaining": 2147483647, "unlimited": 1}}]}},
+        {"id": "P0-MUT-negate-idem-body", "category": "MUTATION_KILL", "priority": "P0",
+         "source": "mutation:MUT_NEGATE",
+         "regression_reason": "idempotent replay 必须返回 duplicate=True（覆盖 if idem 翻转）",
+         "action": {"kind": "sequence", "steps": [
+             {"path": "/red-packets", "body": {**base, "idem_key": "negate-kill"}, "expect_status": 201},
+             {"path": "/red-packets", "body": {**base, "idem_key": "negate-kill"}, "expect_status": 200,
+              "expect_json": {"duplicate": True}}]},
+         "expected": {"db_count": [{"sql": "SELECT COUNT(*) FROM red_packet WHERE idem_key='negate-kill'", "expect": 1}]}},
+
     ]
 
 

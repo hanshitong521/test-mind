@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TestMind 看板</title>
+<style>
+  :root{
+    --bg:#f5f6f8; --panel:#fff; --ink:#1f2328; --muted:#6b7280; --line:#e5e7eb;
+    --accent:#2563eb; --accent-soft:#eff4ff; --ok:#15803d; --ok-soft:#eaf7ee;
+    --fail:#c2261f; --fail-soft:#fdeceb; --warn:#b45309; --warn-soft:#fdf4e3;
+    --muted-soft:#f1f2f4; --radius:10px;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:14px/1.6 -apple-system,"Segoe UI","Microsoft YaHei",system-ui,sans-serif}
+  a{color:var(--accent)}
+  .wrap{max-width:1240px;margin:0 auto;padding:20px 20px 64px}
+  header.top{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:18px}
+  header.top h1{font-size:20px;margin:0;letter-spacing:.3px}
+  header.top .ver{color:var(--muted);font-size:12px}
+  header.top .spacer{flex:1}
+  .btn{border:1px solid var(--line);background:var(--panel);color:var(--ink);
+    padding:6px 12px;border-radius:8px;cursor:pointer;font-size:13px}
+  .btn:hover{border-color:var(--accent);color:var(--accent)}
+  .grid{display:grid;gap:14px}
+  .kpi{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+  .cols{grid-template-columns:1.35fr 1fr}
+  @media(max-width:900px){.cols{grid-template-columns:1fr}}
+  section{margin-top:22px}
+  h2{font-size:15px;margin:0 0 10px;display:flex;align-items:center;gap:8px}
+  h2 .hint{font-weight:400;color:var(--muted);font-size:12px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:14px}
+  .kpi .card{padding:13px 14px}
+  .kpi .n{font-size:24px;font-weight:650;line-height:1.2}
+  .kpi .l{color:var(--muted);font-size:12px;margin-top:2px}
+  .kpi .sub{font-size:11px;color:var(--muted);margin-top:4px}
+  .pill{display:inline-block;padding:1px 8px;border-radius:999px;font-size:11px;font-weight:600}
+  .pill.ok{background:var(--ok-soft);color:var(--ok)}
+  .pill.fail{background:var(--fail-soft);color:var(--fail)}
+  .pill.warn{background:var(--warn-soft);color:var(--warn)}
+  .pill.muted{background:var(--muted-soft);color:var(--muted)}
+  .pill.info{background:var(--accent-soft);color:var(--accent)}
+  ul.clean{list-style:none;margin:0;padding:0}
+  ul.clean li{padding:7px 0;border-bottom:1px dashed var(--line);display:flex;gap:8px;align-items:flex-start}
+  ul.clean li:last-child{border-bottom:0}
+  .todo-k{flex:0 0 auto}
+  .entry{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:13px 14px;margin-bottom:11px}
+  .entry h3{margin:0 0 3px;font-size:14px}
+  .entry .sub{color:var(--muted);font-size:12px;margin-bottom:9px}
+  .entry .when{font-size:12px;color:var(--muted);margin-bottom:8px}
+  code{background:var(--muted-soft);padding:1px 6px;border-radius:5px;font-size:12px;
+    font-family:"Cascadia Mono",Consolas,monospace}
+  .chips{display:flex;flex-wrap:wrap;gap:6px}
+  .chip{border:1px solid var(--line);background:#fbfbfc;border-radius:7px;padding:2px 8px;
+    font-size:12px;font-family:"Cascadia Mono",Consolas,monospace}
+  details.ex{margin-top:9px;border-top:1px dashed var(--line);padding-top:8px}
+  details.ex summary{cursor:pointer;color:var(--accent);font-size:12.5px;list-style:none}
+  details.ex summary::-webkit-details-marker{display:none}
+  details.ex summary::before{content:"▸ ";}
+  details.ex[open] summary::before{content:"▾ ";}
+  .exrow{padding:8px 0 4px;border-bottom:1px dashed var(--line)}
+  .exrow:last-child{border-bottom:0}
+  .exrow .from{font-weight:600;font-size:12.5px}
+  .exrow .why{color:var(--muted);font-size:12px;margin-top:3px}
+  .exrow .arr{color:var(--muted);font-size:12px;margin-top:3px}
+  .tl{max-height:460px;overflow:auto}
+  .tl .row{display:flex;gap:9px;align-items:center;padding:6px 0;border-bottom:1px dashed var(--line);font-size:12.5px}
+  .tl .row:last-child{border-bottom:0}
+  .tl .t{color:var(--muted);font-family:"Cascadia Mono",Consolas,monospace;font-size:11.5px;flex:0 0 auto}
+  .tl .id{flex:1;font-family:"Cascadia Mono",Consolas,monospace;font-size:11.5px;color:var(--muted);
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .bars{display:flex;align-items:flex-end;gap:4px;height:74px;margin-top:4px}
+  .bars .b{flex:1;display:flex;flex-direction:column;justify-content:flex-end;gap:1px;min-width:6px}
+  .bars .b i{display:block;border-radius:2px}
+  .bars .b i.p{background:#7fb98f}
+  .bars .b i.f{background:#e0928c}
+  .bars .b i.o{background:#e8b96a}
+  .bars .b i.z{background:#e3e5e8}
+  .bars .lab{display:flex;gap:4px;margin-top:5px;color:var(--muted);font-size:10px}
+  .bars .lab span{flex:1;text-align:center;min-width:6px}
+  .kv{display:flex;justify-content:space-between;gap:10px;padding:4px 0;font-size:12.5px;
+    border-bottom:1px dashed var(--line)}
+  .kv:last-child{border-bottom:0}
+  .kv .k{color:var(--muted)}
+  .search{display:flex;gap:8px}
+  .search input{flex:1;padding:8px 11px;border:1px solid var(--line);border-radius:8px;
+    background:var(--panel);color:var(--ink);font-size:13px}
+  .search input:focus{outline:none;border-color:var(--accent)}
+  .err{background:var(--fail-soft);color:var(--fail);border:1px solid #f3c9c6;
+    padding:10px 12px;border-radius:8px;font-size:13px}
+  .note{color:var(--muted);font-size:12px;margin-top:8px}
+  footer{margin-top:26px;color:var(--muted);font-size:12px;text-align:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1>TestMind 看板</h1>
+    <span class="ver" id="ver"></span>
+    <span class="spacer"></span>
+    <span class="ver" id="gen"></span>
+    <button class="btn" id="refresh">刷新</button>
+  </header>
+
+  <div id="err"></div>
+
+  <section>
+    <h2>总览 <span class="hint">数据来自 reports/ · 只读聚合</span></h2>
+    <div class="grid kpi" id="kpi"></div>
+  </section>
+
+  <div class="grid cols">
+    <section style="margin-top:22px">
+      <h2>今日待处理 <span class="hint">来自 .agent/state</span></h2>
+      <div class="card" id="todo"></div>
+    </section>
+    <section style="margin-top:22px">
+      <h2>近 30 天动态 <span class="hint">绿=通过 红=失败 橙=非判定 灰=空</span></h2>
+      <div class="card" id="trend"></div>
+    </section>
+  </div>
+
+  <section>
+    <h2>测试入口分类 <span class="hint">7 个入口覆盖全部 32 个 MCP 工具 · 点开看「举一反三」</span></h2>
+    <div id="entries"></div>
+  </section>
+
+  <section>
+    <h2>举一反三路由 <span class="hint">丢一句模糊需求，指到最合适的入口</span></h2>
+    <div class="card">
+      <div class="search">
+        <input id="q" placeholder="例：用户付款成功但订单停在待支付">
+        <button class="btn" id="go">路由</button>
+      </div>
+      <div id="routeout" class="note">没把握就不指——空结果比乱指好。</div>
+    </div>
+  </section>
+
+  <div class="grid cols">
+    <section>
+      <h2>资产库 <span class="hint">回归锚 / 技能 / 规则 / 示例</span></h2>
+      <div class="card" id="assets"></div>
+    </section>
+    <section>
+      <h2>项目动态 <span class="hint">最近 40 次运行</span></h2>
+      <div class="card tl" id="activity"></div>
+    </section>
+  </div>
+
+  <section>
+    <h2>测试纪律 <span class="hint">硬规则 · 状态词 · 质量维度 · 故障注入</span></h2>
+    <div class="grid cols" id="discipline"></div>
+  </section>
+
+  <footer>TestMind 看板 · 只读 · 仅监听 127.0.0.1</footer>
+</div>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const pillCls = (s) => s === "PASS" ? "ok" : s === "FAIL" ? "fail"
+  : (s === "EMPTY" || s === "UNKNOWN") ? "muted" : "warn";
+
+function kpi(d){
+  const r = d.reports;
+  const items = [
+    ["有效运行", r.effective_runs, `报告目录共 ${r.total_dirs} · 近 7 天 ${r.runs_7d}`],
+    ["门禁通过率", r.pass_rate === null ? "—" : r.pass_rate + "%",
+      `PASS ${r.gate_pass} / FAIL ${r.gate_fail} · 口径 ${r.pass_rate_basis}`],
+    ["非判定态", r.not_tested + r.tool_error,
+      `NOT_TESTED ${r.not_tested} / TOOL_ERROR ${r.tool_error}`],
+    ["用例总数", r.cases_total, `失败用例 ${r.cases_failed}`],
+    ["回归锚", d.assets.regression.count, priText(d.assets.regression.by_priority)],
+    ["空壳目录", r.empty_shells, `占 ${r.empty_ratio}% · 只建了目录没产物`],
+    ["最新门禁", r.latest ? r.latest.gate : "—",
+      r.latest ? (r.latest.id + " · 契约 v" + (r.latest.contract_version ?? "?")) : "无报告"],
+  ];
+  $("#kpi").innerHTML = items.map(([l,n,s]) => {
+    const isStatus = l === "最新门禁";
+    const nHtml = isStatus ? `<span class="pill ${pillCls(n)}">${esc(n)}</span>` : esc(n);
+    return `<div class="card"><div class="n">${nHtml}</div><div class="l">${esc(l)}</div><div class="sub">${esc(s)}</div></div>`;
+  }).join("");
+}
+
+function priText(bp){
+  const ks = Object.keys(bp || {});
+  return ks.length ? ks.sort().map(k => `${k}:${bp[k]}`).join(" ") : "无";
+}
+
+function todo(d){
+  const st = d.state, t = st.todo || [];
+  let html = `<div class="kv"><span class="k">当前目标</span><span>${esc(st.project.goal || "—")}</span></div>`
+    + `<div class="kv"><span class="k">阶段</span><span>${esc(st.task.phase || "—")}</span></div>`
+    + `<div class="kv"><span class="k">状态更新</span><span>${esc(st.project.updated || "—")}</span></div>`;
+  if (!t.length) return html + `<div class="note">没有登记待处理项。</div>`;
+  html += `<ul class="clean">` + t.map(x =>
+    `<li><span class="todo-k pill ${x.tone === "warn" ? "warn" : x.tone === "info" ? "info" : "muted"}">${esc(x.kind)}</span><span>${esc(x.text)}</span></li>`
+  ).join("") + `</ul>`;
+  return html;
+}
+
+function trend(d){
+  const rows = d.trend || [];
+  const max = Math.max(1, ...rows.map(r => r.runs));
+  const bars = rows.map(r => {
+    const h = Math.round(r.runs / max * 62);
+    const p = r.runs ? Math.round(r.pass / r.runs * h) : 0;
+    const f = r.runs ? Math.round(r.fail / r.runs * h) : 0;
+    const o = r.runs ? Math.round((r.other || 0) / r.runs * h) : 0;
+    const z = Math.max(0, h - p - f - o);
+    return `<div class="b" title="${r.date} 有效运行${r.runs} 通过${r.pass} 失败${r.fail} 其它${r.other || 0}">
+      <i class="z" style="height:${z}px"></i><i class="o" style="height:${o}px"></i><i class="f" style="height:${f}px"></i><i class="p" style="height:${p}px"></i></div>`;
+  }).join("");
+  const labs = rows.map(r => `<span>${r.date.slice(8)}</span>`).join("");
+  const active = rows.filter(r => r.runs).length;
+  return `<div class="bars">${bars}</div><div class="lab">${labs}</div>
+    <div class="note">近 30 天，峰值 ${max} 次/天，有数据的天数 ${active}。绿=通过 红=失败 橙=非判定 灰=空。</div>`;
+}
+
+function entries(d){
+  const groups = (d.playbook && d.playbook.entries) || [];
+  $("#entries").innerHTML = groups.map(g => {
+    const ex = (g.extrapolate || []).map(e => `
+      <div class="exrow">
+        <div class="from">${esc(e.from)}</div>
+        <div class="arr">→ ${(e.expand || []).map(x => `<span class="chip">${esc(x)}</span>`).join(" ")}</div>
+        <div class="why">依据：${esc(e.why)}</div>
+      </div>`).join("");
+    return `<div class="entry">
+      <h3>${esc(g.title)}</h3>
+      <div class="sub">${esc(g.subtitle)}</div>
+      <div class="when">什么时候用：${esc(g.when)} · 第一枪 <code>${esc(g.first_call)}</code></div>
+      <div class="chips">${(g.tools || []).map(t => `<span class="chip">${esc(t)}</span>`).join("")}</div>
+      <details class="ex"><summary>举一反三（${(g.extrapolate || []).length} 条）</summary>${ex}</details>
+    </div>`;
+  }).join("");
+}
+
+function assets(d){
+  const a = d.assets, reg = a.regression;
+  let html = `<div class="kv"><span class="k">回归锚</span><span>${reg.count} 条 · ${esc(priText(reg.by_priority))}</span></div>`;
+  const items = (reg.items || []).slice(0, 6).map(i =>
+    `<li><span class="pill ${i.priority === "P0" ? "fail" : "muted"}">${esc(i.priority || "?")}</span>
+      <span><code>${esc(i.id)}</code> <span class="note">${esc(i.source || "")}</span></span></li>`).join("");
+  if (items) html += `<ul class="clean">${items}</ul>`;
+  html += `<div class="kv"><span class="k">技能</span><span>${(a.skills||[]).map(s=>esc(s.name)).join(" · ") || "—"}</span></div>`;
+  html += `<div class="kv"><span class="k">规则</span><span>${(a.rules||[]).map(esc).join(" · ") || "—"}</span></div>`;
+  html += `<div class="kv"><span class="k">示例</span><span>${(a.examples||[]).map(e=>`${esc(e.name)}(${e.files})`).join(" · ") || "—"}</span></div>`;
+  return html;
+}
+
+function activity(d){
+  const rows = d.activity || [];
+  if (!rows.length) return `<div class="note">还没有报告。</div>`;
+  return rows.map(r => `<div class="row">
+    <span class="t">${esc(r.ts.slice(4,6))}/${esc(r.ts.slice(6,8))} ${esc(r.ts.slice(9,11))}:${esc(r.ts.slice(11,13))}</span>
+    <span class="pill ${pillCls(r.gate)}">${esc(r.gate)}</span>
+    <span>${r.cases} 例${r.failed ? " / 失败 " + r.failed : ""}</span>
+    <span class="id" title="${esc(r.id)}${r.failed_ids.length ? " 失败:" + esc(r.failed_ids.join(",")) : ""}">${esc(r.id)}</span>
+  </div>`).join("");
+}
+
+function discipline(d){
+  const p = d.playbook || {};
+  const rules = (p.hard_rules || []).map(r =>
+    `<li><span class="pill fail">${esc(r.id)}</span><span><b>${esc(r.text)}</b><div class="note">${esc(r.detail)}</div></span></li>`).join("");
+  const dims = (p.quality_dimensions || []).map(q =>
+    `<li><span class="pill info">${esc(q.id)}</span><span><b>${esc(q.text)}</b><div class="note">${esc(q.how)}</div></span></li>`).join("");
+  const modes = (p.fault_modes || []).map(f =>
+    `<li><code>${esc(f.id)}</code><span>${esc(f.text)}${f.why ? `<div class="note">${esc(f.why)}</div>` : ""}</span></li>`).join("");
+  const vocab = (p.status_vocab || []).map(v => `<span class="chip">${esc(v)}</span>`).join(" ");
+  const defects = (p.defect_classes || []).map(v => `<span class="chip">${esc(v)}</span>`).join(" ");
+  return `<div class="card"><h2 style="margin-top:0">四条硬规则</h2><ul class="clean">${rules}</ul></div>
+    <div>
+      <div class="card"><h2 style="margin-top:0">质量维度 Q1–Q5</h2><ul class="clean">${dims}</ul></div>
+      <div class="card" style="margin-top:14px"><h2 style="margin-top:0">状态词（只许这些）</h2><div class="chips">${vocab}</div>
+        <h2 style="margin-top:14px">10 类缺陷注入</h2><div class="chips">${defects}</div></div>
+      <div class="card" style="margin-top:14px"><h2 style="margin-top:0">故障注入五模式</h2><ul class="clean">${modes}</ul></div>
+    </div>`;
+}
+
+function routeRender(res){
+  const hits = res.hits || [];
+  if (!hits.length){
+    $("#routeout").innerHTML = `<span class="note">没把握就不指——换个说法，或直接看上面的入口分类。</span>`;
+    return;
+  }
+  $("#routeout").innerHTML = hits.map(h =>
+    `<div class="exrow"><div class="from">${esc(h.pattern)}</div>
+     <div class="arr">入口 → <span class="pill info">${esc(h.entry)}</span> 接着 → <span class="pill muted">${esc(h.next)}</span></div>
+     <div class="why">${esc(h.note)}</div></div>`).join("");
+}
+
+async function load(){
+  $("#err").innerHTML = "";
+  try{
+    const r = await fetch("/api/bundle?limit=80");
+    if(!r.ok) throw new Error("HTTP " + r.status);
+    const d = await r.json();
+    $("#ver").textContent = "v" + (d.version || "?");
+    $("#gen").textContent = "生成于 " + d.generated_at;
+    kpi(d); todo(d); trend(d); entries(d); assets(d); activity(d); discipline(d);
+  }catch(e){
+    $("#err").innerHTML = `<div class="err">加载失败：${esc(e.message)}。确认服务在跑，且 /api/bundle 可达。</div>`;
+  }
+}
+
+$("#refresh").onclick = load;
+$("#go").onclick = async () => {
+  const q = $("#q").value.trim();
+  if(!q) return;
+  try{
+    const r = await fetch("/api/route?q=" + encodeURIComponent(q));
+    routeRender(await r.json());
+  }catch(e){ $("#routeout").innerHTML = `<span class="err">${esc(e.message)}</span>`; }
+};
+$("#q").addEventListener("keydown", e => { if(e.key === "Enter") $("#go").click(); });
+load();
+</script>
+</body>
+</html>
