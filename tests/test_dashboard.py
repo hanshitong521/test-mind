@@ -252,7 +252,7 @@ class TestServer(unittest.TestCase):
         self.assertEqual(code, 200)
         d = json.loads(body)
         self.assertEqual(d["reports"]["total_dirs"], 2)
-        self.assertEqual(len(d["playbook"]["entries"]), 7)
+        self.assertEqual(len(d["playbook"]["entries"]), 4)   # §29 收敛后：4 入口组覆盖 7 门面
 
     def test_activity_and_assets_and_playbook(self):
         for p in ("/api/activity?limit=5", "/api/assets", "/api/playbook"):

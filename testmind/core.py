@@ -1148,9 +1148,26 @@ def _tpl(obj, ctx):
 
 
 DB_ASSERTIONS = ("db_rows", "db_count", "db_no_write")
+KV_ASSERTIONS = ("kv_rows", "kv_count", "kv_no_write")   # §29 增强：Redis/KV 副作用断言
 
 
-def executable_assertions(case, has_db):
+def _kv_watch_keys(exp, kv):
+    """KV 断言声明的监控 key 全集（显式 key + pattern）；kv_no_write 无显式 key 时全库扫。"""
+    keys = []
+    for spec in exp.get("kv_rows", []):
+        if spec.get("key"):
+            keys.append(spec["key"])
+    for spec in exp.get("kv_count", []):
+        if spec.get("key"):
+            keys.append(spec["key"])
+        elif spec.get("pattern"):
+            keys += list(kv.keys(spec["pattern"]))
+    if exp.get("kv_no_write") and not keys:
+        return None                                   # None = 全库快照
+    return sorted(set(keys)) or None
+
+
+def executable_assertions(case, has_db, has_kv=False):
     """返回 (真正执行的断言, 因缺库无法执行的断言)。零可执行断言 = 这个 case 什么都没验，不许它变绿。"""
     a = case.get("action") or {}
     exp = case.get("expected") or {}
@@ -1163,12 +1180,21 @@ def executable_assertions(case, has_db):
             ran.append("json")
     elif kind == "sequence":
         ran += [f"step{i}.status" for i, s in enumerate(a.get("steps") or []) if s.get("expect_status") is not None]
+        ran += [f"step{i}.checks" for i, s in enumerate(a.get("steps") or []) if s.get("checks")]
     elif kind == "concurrent":
         ran += [k for k in ("success_count", "max_success") if k in exp]
     db = [k for k in DB_ASSERTIONS if exp.get(k)]
+    kv = [k for k in KV_ASSERTIONS if exp.get(k)]
     if has_db:
-        return ran + db, []
-    return ran, [f"{k}(no db connection)" for k in db]
+        ran += db
+    else:
+        ran += []
+    untested = [] if has_db else [f"{k}(no db connection)" for k in db]
+    if has_kv:
+        ran += kv
+    else:
+        untested += [f"{k}(no kv connection)" for k in kv]
+    return ran, untested
 
 
 class Engine:
@@ -1176,12 +1202,14 @@ class Engine:
               expected:{http|json|success_count|max_success|db_rows|db_count|db_no_write}}
     setup/step 支持 {{var}} 模板（step.save 从响应取变量）。未执行的 case 永远不会变成 PASS。"""
 
-    def __init__(self, base_url, evidence, db=None, proxy=None, default_headers=None):
+    def __init__(self, base_url, evidence, db=None, proxy=None, default_headers=None, ledger=None, kv=None):
         self.base_url = base_url.rstrip("/")
         self.ev = evidence
         self.db = db                      # DBCheck or None（API-only）
         self.proxy = proxy                # FaultProxy or None
         self.default_headers = default_headers or {}   # 全局鉴权头（case 级可覆盖）
+        self.ledger = ledger              # V10 §16 SeedLedger or None：setup 写操作登记
+        self.kv = kv                      # §29 增强 KVCheck or None：Redis/KV 副作用断言（before/after diff）
 
     def http(self, method, path, body=None, headers=None, timeout=15):
         data = json.dumps(body).encode() if body is not None else None
@@ -1200,16 +1228,33 @@ class Engine:
     def run(self, case, snapshot=True):
         ctx, detail, ok, err = {}, {}, False, None
         before = after = diff = {}
+        kv_before = kv_after = kv_diff = {}
         delta = None
         phase = "setup"
         take = bool(self.db) and snapshot
+        kv_take = bool(self.kv) and snapshot and any(
+            k in case.get("expected", {}) for k in KV_ASSERTIONS)
         try:
             for sql in case.get("setup", []):
-                self.db.exec(sql)                      # fixture 先于快照：不算入被测写操作
+                if self.ledger is not None and self.db is not None:
+                    self.ledger.record_exec(self.db, sql, case_id=case["id"],
+                                            dataset_id=case.get("dataset_id", ""),
+                                            reason=case.get("reason", "case setup"))
+                else:
+                    self.db.exec(sql)                      # fixture 先于快照：不算入被测写操作
             phase = "action"
             before, bc = (self.db.snapshot(), self.db.counts()) if take else ({}, {})
+            if kv_take:
+                kkeys = _kv_watch_keys(case.get("expected", {}), self.kv)
+                kv_before = self.kv.snapshot(kkeys)
             ok, detail = self._dispatch(case, ctx, detail)
             phase = "db_check"
+            if kv_take:
+                kv_after = self.kv.snapshot(kkeys)
+                kv_diff = type(self.kv).diff(kv_before, kv_after)
+                detail["kv_diff_summary"] = {"added": len(kv_diff["added"]),
+                                             "removed": len(kv_diff["removed"]),
+                                             "changed": len(kv_diff["changed"])}
             if take:
                 after, ac = self.db.snapshot(), self.db.counts()
                 diff = DBCheck.diff(before, after)
@@ -1225,12 +1270,14 @@ class Engine:
                 detail["db_snapshot"] = "skipped (parallel-safe: case asserts nothing on db)"
             if ok:
                 ok, detail = self._assert_db(_tpl(case.get("expected", {}), ctx), after, diff, detail, delta)
+            if ok and kv_take:
+                ok, detail = self._assert_kv(_tpl(case.get("expected", {}), ctx), kv_diff, detail)
         except Exception as e:
             ok, err = False, {"phase": phase, "error": repr(e)}
         if ok is None:                    # fault 无 proxy → 诚实标注，不算假通过
             return {"id": case["id"], "priority": case.get("priority", "P1"),
                     "status": "SKIPPED_WITH_REASON", "evidence": "no fault proxy configured", "detail": detail}
-        ran, untested = executable_assertions(case, self.db is not None)
+        ran, untested = executable_assertions(case, self.db is not None, self.kv is not None)
         if untested:
             detail["untested_assertions"] = untested
         if err:
@@ -1238,6 +1285,9 @@ class Engine:
         elif take is False and any(k in case.get("expected", {}) for k in DB_ASSERTIONS):
             status = "NOT_TESTED"                                  # 跳过快照的批不该带库断言，带了就认栽
             detail["db_snapshot_required"] = True
+        elif not kv_take and any(k in case.get("expected", {}) for k in KV_ASSERTIONS):
+            status = "NOT_TESTED"                                  # 没接 KV / 跳过快照，却带 KV 断言
+            detail["kv_snapshot_required"] = True
         elif take and (self.db.errors or self.db.count_errors) and any(k in case.get("expected", {}) for k in DB_ASSERTIONS):
             status = "TOOL_ERROR"                                  # 表读不出来就没资格谈 db 断言
         elif not ok:
@@ -1254,6 +1304,10 @@ class Engine:
             self.ev.write(f"cases/{cid}/db-before.json", before)
             self.ev.write(f"cases/{cid}/db-after.json", after)
             self.ev.write(f"cases/{cid}/db-diff.json", diff)
+        if kv_take:
+            self.ev.write(f"cases/{cid}/kv-before.json", kv_before)
+            self.ev.write(f"cases/{cid}/kv-after.json", kv_after)
+            self.ev.write(f"cases/{cid}/kv-diff.json", kv_diff)
         r = {"id": case["id"], "priority": case.get("priority", "P1"),
              "status": status, "evidence": f"cases/{cid}/", "assertions": ran, "detail": detail}
         self.ev.write(f"cases/{cid}/result.json", r)
@@ -1285,12 +1339,20 @@ class Engine:
                                      {**self.default_headers, **(_tpl(step.get("headers"), ctx) or {})})
                 for var, src in step.get("save", {}).items():
                     ctx[var] = body.get(src) if isinstance(body, dict) else None
+                if step.get("save_body"):
+                    ctx[step["save_body"]] = body
                 detail[f"step{i}"] = (st, body)
-                if step.get("expect_status") is None:
+                if step.get("expect_status") is None and not step.get("checks"):
                     unasserted += 1
                     continue
-                if st != step["expect_status"]:
+                if step.get("expect_status") is not None and st != step["expect_status"]:
                     return False, detail
+                if step.get("checks"):
+                    from testmind.oracle import run_checks
+                    okc, cinfo = run_checks(_tpl(step["checks"], ctx), body, ctx)
+                    detail[f"step{i}.checks"] = cinfo
+                    if not okc:
+                        return False, detail
             if unasserted:
                 detail["steps_unasserted"] = unasserted
             return True, detail
@@ -1351,6 +1413,44 @@ class Engine:
             blind = [t for t in diff if (delta or {}).get(t) is None or t in getattr(self.db, "truncated", set())]
             if blind:      # 计数拿不到 / 命中 500 行窗口 = 证不了"没写"，宁可 NOT_TESTED 也不许假绿
                 return True, {**detail, "unverifiable": [f"db_no_write:{t}(row count not observable)" for t in blind]}
+        return True, detail
+
+    def _assert_kv(self, exp, kv_diff, detail):
+        """§29 增强：KV 断言在 before/after diff 上判定（与 _assert_db 同构）。
+        kv_rows: [{key, value|contains|absent}]；kv_count: [{pattern, expect}]；
+        kv_no_write: true → 监控窗口内不许有任何 added/removed/changed。"""
+        added, removed, changed = kv_diff["added"], kv_diff["removed"], kv_diff["changed"]
+        for spec in exp.get("kv_rows", []):
+            k = spec.get("key")
+            if not k:
+                return False, {**detail, "kv_rows_spec_invalid": spec}
+            if spec.get("absent"):
+                if self.kv.get(k) is not None:      # 现读为准：diff 只含变化 key，未变的存在要直接证伪
+                    return False, {**detail, "kv_should_be_absent": {"key": k}}
+                continue
+            if k in removed:
+                return False, {**detail, "kv_row_missing": {**spec, "note": "key 被删除"}}
+            cur = changed.get(k, {}).get("after") if k in changed else added.get(k)
+            if cur is None:
+                cur = self.kv.get(k)           # 前态已存在且未变：现读一次证明值
+            if "value" in spec and str(cur) != str(spec["value"]):
+                return False, {**detail, "kv_value_mismatch": {"key": k, "want": spec["value"], "got": cur}}
+            if "contains" in spec and (cur is None or str(spec["contains"]) not in str(cur)):
+                return False, {**detail, "kv_value_mismatch": {"key": k, "want_contains": spec["contains"], "got": cur}}
+            if "value" not in spec and "contains" not in spec and not spec.get("absent"):
+                detail.setdefault("weak_assertions", []).append(f"kv_rows:{k}(existence only)")
+        for spec in exp.get("kv_count", []):
+            if "expect" not in spec or not spec.get("pattern"):
+                return False, {**detail, "kv_count_spec_invalid": spec}
+            got = len(self.kv.keys(spec["pattern"]))
+            if got != spec["expect"]:
+                return False, {**detail, "kv_count": {"spec": spec, "got": got}}
+        if exp.get("kv_no_write"):
+            grew = sorted(set(added) | set(removed) | set(changed))
+            if grew:
+                return False, {**detail, "kv_write_on_negative": grew}
+            if getattr(self.kv, "truncated", False):   # 全库扫被截断 = 证不了"没写"，宁可 NOT_TESTED
+                return True, {**detail, "unverifiable": ["kv_no_write(snapshot truncated)"]}
         return True, detail
 
 

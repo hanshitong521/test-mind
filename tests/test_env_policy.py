@@ -16,9 +16,8 @@ class TestEnvPolicy(unittest.TestCase):
         self.assertIn("blocked", msg)
 
     def test_mcp_prepare_production_rejected(self):
-        r = mcp.dispatch("prepare_environment", {
-            "env_class": "production",
-            "base_url": "https://production.example.com",
+        r = mcp.dispatch("prepare_verification", {
+            "env": {"env_class": "production", "base_url": "https://production.example.com"},
         })
         self.assertEqual(r["status"], "BLOCKED")
 

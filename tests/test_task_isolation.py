@@ -20,7 +20,7 @@ class TestTaskIsolation(unittest.TestCase):
                 "intent": {"goal": "verify"},
                 "spec": {"verify": {"environment_ref": "env://test/local"}},
             }
-            r = mcp.dispatch("intake_task", {"task_bundle": bundle, "consumer_root": root})
+            r = mcp.dispatch("plan_verification", {"task_bundle": bundle, "consumer_root": root})
             self.assertEqual(r["status"], "PASS")
         self.assertTrue(os.path.isdir(os.path.join(root, ".testmind", "tasks", "TASK-A")))
         self.assertTrue(os.path.isdir(os.path.join(root, ".testmind", "tasks", "TASK-B")))

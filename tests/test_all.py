@@ -359,9 +359,9 @@ class TestMCPPrecheckGateIsolation(unittest.TestCase):
         """红线：静态发现哪怕 error 满天飞，final_gate 没执行照样 NOT_TESTED，不许借静态翻绿。"""
         from testmind import mcp
         try:
-            r = mcp.dispatch("static_precheck", {
+            r = mcp.dispatch("run_verification", {"precheck": {
                 "schema_sql": DDL_FULL,
-                "statements": [{"sql": "INSERT INTO acct VALUES ('only', 1)", "source": "diff"}]})
+                "statements": [{"sql": "INSERT INTO acct VALUES ('only', 1)", "source": "diff"}]}})
             self.assertEqual(r["status"], "FAIL")                      # findings 存在 → 工具层 FAIL
             self.assertTrue(mcp.S.precheck and mcp.S.precheck["findings"])
         finally:
@@ -377,7 +377,7 @@ class TestMCPPrecheckGateIsolation(unittest.TestCase):
         try:
             mcp.S.facts.add("amount", "amount 最多 1000", "doc")
             mcp.S.facts.add("amount", "amount 不允许超过 10000", "code")
-            r = mcp.dispatch("static_precheck", {"schema_sql": DDL_FULL, "statements": []})
+            r = mcp.dispatch("run_verification", {"precheck": {"schema_sql": DDL_FULL, "statements": []}})
             self.assertEqual(r["status"], "PASS")
             self.assertEqual(len(r["fact_conflicts"]), 1)
         finally:
@@ -415,9 +415,9 @@ class TestSutProvision(unittest.TestCase):
 
     def _prepare(self, **sut):
         from testmind import mcp
-        return mcp.dispatch("prepare_environment", {
-            "sut": {"command": f'"{sys.executable}" "{self.script}"', "health_check": {
-                "url": f"http://127.0.0.1:{self.PORT}/health", "timeout_s": 20}, **sut}})
+        return mcp.dispatch("prepare_verification", {
+            "env": {"sut": {"command": f'"{sys.executable}" "{self.script}"', "health_check": {
+                "url": f"http://127.0.0.1:{self.PORT}/health", "timeout_s": 20}, **sut}}})
 
     def test_spawn_health_and_real_request(self):
         from testmind import mcp
@@ -437,9 +437,9 @@ class TestSutProvision(unittest.TestCase):
 
     def test_early_exit_is_blocked_not_fake_ready(self):
         from testmind import mcp
-        r = mcp.dispatch("prepare_environment", {
-            "sut": {"command": f'"{sys.executable}" -c "import sys; sys.exit(3)"',
-                    "health_check": {"url": f"http://127.0.0.1:{self.PORT + 1}/health", "timeout_s": 15}}})
+        r = mcp.dispatch("prepare_verification", {
+            "env": {"sut": {"command": f'"{sys.executable}" -c "import sys; sys.exit(3)"',
+                            "health_check": {"url": f"http://127.0.0.1:{self.PORT + 1}/health", "timeout_s": 15}}}})
         self.assertEqual(r["status"], "BLOCKED")
         self.assertIn("exited early", r["summary"])
         self.assertIsNone(mcp.S.engine)                                # 不带死服务前进
@@ -496,10 +496,10 @@ class TestSQLPerf(unittest.TestCase):
     def test_mcp_perf_never_enters_gate(self):
         from testmind import mcp
         try:
-            r = mcp.dispatch("sql_perf_check", {
+            r = mcp.dispatch("run_verification", {"perf": {
                 "db": {"kind": "sqlite", "path": ":memory:"},
                 "queries": [{"id": "Q1", "sql": "SELECT 1 AS x", "source": "dao.py:12",
-                             "compare_sql": "SELECT 1 AS x"}], "threshold_ms": 0})
+                             "compare_sql": "SELECT 1 AS x"}], "threshold_ms": 0}})
             self.assertEqual(r["status"], "PASS")
             self.assertTrue(mcp.S.sqlperf["queries"])
         finally:

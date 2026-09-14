@@ -65,12 +65,12 @@ def run_peak_simulation(consumer_root=None, port=None, task_bundle_path=None):
         mcp.S.consumer_root = consumer_root
         steps = []
 
-        r = mcp.dispatch("intake_task", {"task_bundle": bundle, "consumer_root": consumer_root})
-        steps.append(("intake_task", r["status"]))
-
         openapi_path = os.path.join(consumer_root, profile.get("openapi_path", "openapi.json"))
-        r = mcp.dispatch("collect_facts", {"openapi": openapi_path})
-        steps.append(("collect_facts", r["status"]))
+        r = mcp.dispatch("plan_verification", {
+            "task_bundle": bundle, "consumer_root": consumer_root, "openapi": openapi_path})
+        steps.append(("plan_verification", r["status"]))
+        if r["status"] == "BLOCKED":
+            return {"status": r["status"], "summary": r["summary"], "steps": steps}
 
         api_key = profile.get("_resolved_secrets", {}).get("api_key", "")
         base_url = f"http://127.0.0.1:{port}"
@@ -80,8 +80,8 @@ def run_peak_simulation(consumer_root=None, port=None, task_bundle_path=None):
             "db": {"kind": "sqlite", "path": db_path},
             "tables": ["stock", "coupon", "warehouse"],
         }
-        r = mcp.dispatch("prepare_environment", prep)
-        steps.append(("prepare_environment", r["status"]))
+        r = mcp.dispatch("prepare_verification", {"env": prep})
+        steps.append(("prepare_verification", r["status"]))
         if r["status"] != "PASS":
             return {"status": r["status"], "summary": r["summary"], "steps": steps}
 
@@ -107,9 +107,10 @@ def run_peak_simulation(consumer_root=None, port=None, task_bundle_path=None):
              ]},
              "expected": {"db_count": [{"sql": "SELECT COUNT(*) FROM coupon WHERE request_id='sim-rid-1'", "expect": 1}]}},
         ]
-        mcp.dispatch("generate_cases", {"cases": cases})
-        r = mcp.dispatch("run_suite", {})
-        steps.append(("run_suite", r["status"]))
+        # curated case 注入 plan（等价旧 generate_cases→run_suite），再走门面执行
+        mcp.S.plan += cases
+        r = mcp.dispatch("run_verification", {})
+        steps.append(("run_verification", r["status"]))
 
         # 模拟验收集 curated case，不按 risk_floor 强制 P0-IDEM-*（无红包 hooks）
         mcp.S.facts = core.Facts()
@@ -121,9 +122,9 @@ def run_peak_simulation(consumer_root=None, port=None, task_bundle_path=None):
                "environment_fingerprint": profile.get("fingerprint"),
                "task_id": bundle["task_id"]}
 
-        ex = mcp.dispatch("export_handoff", {"task_id": bundle["task_id"]})
-        steps.append(("export_handoff", ex["status"]))
-        rep["artifacts"] = ex.get("artifacts", [])
+        # §29：四件套随 final_gate 终判自动导出
+        steps.append(("handoff", "auto"))
+        rep["artifacts"] = r.get("artifacts", [])
         rep["task_dir"] = os.path.join(consumer_root, ".testmind", "tasks", bundle["task_id"])
 
         leak = False

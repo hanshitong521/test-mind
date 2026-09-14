@@ -52,21 +52,25 @@ add("MUT_REPLACE_CONST","if v is None or (isinstance(v, str) and v.strip() == \"
                           "if v is None or (isinstance(v, str) and v.strip() == \"X\"):", "L141 (sanity)")
 
 # ── 杀手测试子集（仅跑 V9 注入的 12 个 boundary case）────────────
-# 用 subprocess 跑 e2e.py 但只关心最终 PASS/FAIL
-def run_killing_test() -> bool:
-    """返回 True 表示测试套件 PASS（= 当前 mutant 没被杀死）"""
+# V10 §26：结果六分类，只有 KILLED_BY_ASSERTION 计入 kill rate
+def run_killing_test():
+    """返回 (outcome, note)。outcome ∈ PASS|FAIL|TIMEOUT|HARNESS_ERROR"""
     try:
         r = subprocess.run(
             [sys.executable, str(E2E)],
             cwd=str(ROOT),
             capture_output=True, text=True, timeout=120,
         )
-        # e2e.py 在 PASS 时 exit 0，FAIL 时 exit 1
-        return r.returncode == 0
+        if r.returncode == 0:
+            return "PASS", ""
+        # harness 自身坏了（非断言失败）：stderr 无测试失败特征 → HARNESS_ERROR
+        if "FAIL" not in (r.stdout + r.stderr) and r.returncode not in (1,):
+            return "HARNESS_ERROR", f"rc={r.returncode}: {(r.stderr or r.stdout)[:200]}"
+        return "FAIL", ""
     except subprocess.TimeoutExpired:
-        return False  # 超时也算"测试失败"
+        return "TIMEOUT", "killing test timeout"
     except Exception as e:
-        return False
+        return "HARNESS_ERROR", repr(e)
 
 # ── 跑一个变异：改文件 → 跑测试 → 还原 ──────────────────────────
 @dataclass
@@ -77,6 +81,7 @@ class MutantResult:
     killed: bool
     reason: str
     runtime_s: float
+    cls: str = ""            # V10 §26 六分类
 
 def run_one(spec: MutantSpec) -> MutantResult:
     if not BACKUP.exists():
@@ -84,19 +89,29 @@ def run_one(spec: MutantSpec) -> MutantResult:
     original = SUT.read_text(encoding="utf-8")
     if spec.pattern not in original:
         return MutantResult(spec.mid, spec.operator, spec.pattern, killed=False,
-                            reason="PATTERN_NOT_FOUND", runtime_s=0.0)
+                            reason="PATTERN_NOT_FOUND", runtime_s=0.0, cls="PATTERN_NOT_FOUND")
     mutated = original.replace(spec.pattern, spec.replacement, 1)
+    if mutated == original:
+        return MutantResult(spec.mid, spec.operator, spec.pattern, killed=False,
+                            reason="INVALID_MUTANT(no-op)", runtime_s=0.0, cls="INVALID_MUTANT")
     SUT.write_text(mutated, encoding="utf-8")
     t0 = time.time()
-    passed = run_killing_test()
+    outcome, note = run_killing_test()
     rt = time.time() - t0
     # 还原
     SUT.write_text(original, encoding="utf-8")
-    if passed:
+    if outcome == "PASS":
         return MutantResult(spec.mid, spec.operator, spec.pattern, killed=False,
-                            reason="SURVIVED_tests_still_pass", runtime_s=rt)
+                            reason="SURVIVED_tests_still_pass", runtime_s=rt, cls="SURVIVED")
+    if outcome == "TIMEOUT":
+        return MutantResult(spec.mid, spec.operator, spec.pattern, killed=False,
+                            reason=f"TIMEOUT {note}", runtime_s=rt, cls="TIMEOUT")
+    if outcome == "HARNESS_ERROR":
+        return MutantResult(spec.mid, spec.operator, spec.pattern, killed=False,
+                            reason=f"HARNESS_ERROR {note}", runtime_s=rt, cls="HARNESS_ERROR")
+    # FAIL = 断言杀死了变异体（先验证 mutant 可编译/可运行，否则 INVALID）
     return MutantResult(spec.mid, spec.operator, spec.pattern, killed=True,
-                        reason="KILLED_tests_failed_as_expected", runtime_s=rt)
+                        reason="KILLED_BY_ASSERTION", runtime_s=rt, cls="KILLED_BY_ASSERTION")
 
 # ── 跑全部 ─────────────────────────────────────────────────────
 def main():
@@ -110,14 +125,18 @@ def main():
         icon = "[KILLED]" if r.killed else "[SURVIVED]"
         print(f"{icon} {r.mid}  op={r.operator:18s}  rt={r.runtime_s:5.1f}s")
         print(f"         {r.reason}")
-    killed = sum(1 for r in results if r.killed)
-    survived = sum(1 for r in results if not r.killed)
-    error = sum(1 for r in results if r.reason == "PATTERN_NOT_FOUND")
-    valid_total = len(results) - error
+    killed = sum(1 for r in results if r.cls == "KILLED_BY_ASSERTION")
+    survived = sum(1 for r in results if r.cls == "SURVIVED")
+    by_class = {}
+    for r in results:
+        by_class[r.cls] = by_class.get(r.cls, 0) + 1
+    # V10 §26：INVALID_MUTANT / HARNESS_ERROR / TIMEOUT / PATTERN_NOT_FOUND 不计入分母
+    invalid = sum(by_class.get(k, 0) for k in ("INVALID_MUTANT", "HARNESS_ERROR", "TIMEOUT", "PATTERN_NOT_FOUND"))
+    valid_total = len(results) - invalid
     kill_rate = killed / valid_total if valid_total else 0.0
     print("\n" + "-" * 72)
-    print(f"total={len(results)}  killed={killed}  survived={survived}  not_found={error}")
-    print(f"kill_rate = {killed}/{valid_total} = {kill_rate:.2f}")
+    print(f"total={len(results)}  killed={killed}  survived={survived}  by_class={by_class}")
+    print(f"kill_rate = {killed}/{valid_total} = {kill_rate:.2f}  (only KILLED_BY_ASSERTION counts)")
     print(f"V9 threshold: >= 0.6  ->  {'PASS' if kill_rate >= 0.6 else 'FAIL'}")
 
     # 落盘
@@ -126,6 +145,7 @@ def main():
     out.write_text(json.dumps({
         "results": [asdict(r) for r in results],
         "kill_rate": kill_rate,
+        "by_class": by_class,
         "verdict": "PASS" if kill_rate >= 0.6 else "FAIL",
     }, ensure_ascii=False, indent=2), encoding="utf-8")
     print(f"\nreport: {out}")

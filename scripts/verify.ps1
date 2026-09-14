@@ -14,7 +14,7 @@ Write-Host "== 2/5 red-packet e2e closed loop =="
 python examples/red-packet/e2e.py 2>$null | Out-Null
 if ($LASTEXITCODE -ne 0) { $fail += "e2e" } else { Write-Host "e2e: FINAL=PASS (red-packet closed loop incl. boundary/negative/state/fault/concurrency + schemathesis)" }
 
-Write-Host "== 3/5 MCP full-chain smoke (run_pipeline) =="
+Write-Host "== 3/5 MCP full-chain smoke (7 facades) =="
 python scripts/mcp_smoke.py 2>$null | Select-Object -Last 5
 if ($LASTEXITCODE -ne 0) { $fail += "mcp" } else { Write-Host "MCP: OK" }
 

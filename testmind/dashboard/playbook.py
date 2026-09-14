@@ -5,6 +5,7 @@
 - 内容全部来自仓内既有事实源：`skills/testmind/SKILL.md`（四条硬规则 / 问题分类 /
   测试矩阵最低覆盖 / 静态预检边界 / 三步接入 / 故障注入五模式）与
   `问题文档.md` §0.1（Q1–Q5 质量维度）。不发明新口径。
+- §29 工具面收敛后，入口分类覆盖且仅覆盖 7 个门面工具。
 
 为什么要有这一层：TestMind 的 MCP 工具是"动作"，但使用者（人或宿主 AI）拿到一个
 模糊需求时真正缺的是"**该从哪进、进来之后还要顺手测什么**"。前者是入口分类，
@@ -61,14 +62,13 @@ DEFECT_CLASSES = [
     "脏连接（keep-alive 复用污染）",
 ]
 
-# 标准 MCP 调用顺序（SKILL.md「MCP 调用顺序」）
+# 标准 MCP 调用顺序（§30 新管道，7 门面）
 PIPELINE = [
-    "inspect_project", "collect_facts", "(resolve_questions 若有 UNKNOWN)",
-    "static_precheck(改码未部署时)", "build_contract", "plan_tests",
-    "prepare_environment", "run_suite", "run_schema_tests", "final_gate", "cleanup",
+    "analyze_impact", "plan_verification", "prepare_verification",
+    "run_verification", "(replay_failure 若有 FAIL)", "final_gate", "cleanup",
 ]
 
-# ─────────────────────────── 入口分类（7 组覆盖全部 32 个工具） ───────────────────────────
+# ─────────────────────────── 入口分类（覆盖全部 7 个门面） ───────────────────────────
 
 ENTRY_GROUPS = [
     {
@@ -76,53 +76,40 @@ ENTRY_GROUPS = [
         "title": "变更分析",
         "subtitle": "改动来了先看影响面，别只测改的那个方法本身",
         "when": "拿到一个 PR / 一次提交 / 一个新接入的项目",
-        "first_call": "inspect_project {path}",
-        "tools": ["inspect_project", "analyze_change", "scan_java"],
+        "first_call": "analyze_impact {path}",
+        "tools": ["analyze_impact"],
         "extrapolate": [
             {"from": "改了一个 Service 方法",
              "expand": ["调用链上游（谁调它）", "调用链下游（它调谁）", "同事务内的其它写操作"],
-             "why": "SKILL.md：改了 Service 先 analyze_change 看调用链，禁止只测改动的方法本身"},
+             "why": "SKILL.md：改了 Service 先看调用链，禁止只测改动的方法本身"},
             {"from": "改了 DDL / 加了列",
              "expand": ["存量数据回填", "NOT NULL 无默认值", "数值列进 CHECK 范围", "字符串进数值列"],
-             "why": "static_precheck 能从 DDL 确定性推出的四类缺陷"},
+             "why": "run_verification 的 precheck 开关能从 DDL 确定性推出的四类缺陷"},
             {"from": "改了 Java 接口签名",
              "expand": ["所有实现类", "所有调用点", "序列化字段兼容性"],
-             "why": "scan_java 可枚举实现与引用，避免漏改"},
+             "why": "analyze_impact 的 java_graph 可枚举实现与引用，避免漏改"},
         ],
     },
     {
-        "id": "facts",
-        "title": "事实澄清",
+        "id": "plan",
+        "title": "事实澄清与用例设计",
         "subtitle": "先把「预期」钉死，再谈测；查不到就标 UNKNOWN，别编",
-        "when": "准备写用例前 / 多源口径打架时",
-        "first_call": "collect_facts {schema_sql|openapi}",
-        "tools": ["collect_facts", "add_facts", "ask_user", "answer_question", "list_unknowns"],
+        "when": "准备写用例前 / 多源口径打架时 / 要出测试矩阵时",
+        "first_call": "plan_verification {schema_sql|openapi|facts|contract|plan}",
+        "tools": ["plan_verification"],
         "extrapolate": [
             {"from": "文档说上限 1000、代码说 10000",
              "expand": ["标 CONFLICT + BLOCKED_BY_CONFLICT", "禁止自行选一个", "拉出两处 source 让 owner 拍板"],
              "why": "问题分类：多源矛盾不得静默选边"},
             {"from": "某字段约束查不到",
-             "expand": ["先查 schema", "再查契约/OpenAPI", "再查 git history", "再查相邻实现", "全查尽才 ask_user"],
+             "expand": ["先查 schema", "再查契约/OpenAPI", "再查 git history", "再查相邻实现", "全查尽才 ask"],
              "why": "硬规则 R1：查不到→UNKNOWN，先查尽才问"},
-        ],
-    },
-    {
-        "id": "design",
-        "title": "契约与用例设计",
-        "subtitle": "每个必填字段逐个测，不许一把全删只拿一个 400",
-        "when": "事实齐了，要出测试矩阵时",
-        "first_call": "build_contract {contract_id, target, inputs, expected, ok_status}",
-        "tools": ["build_contract", "plan_tests", "generate_cases"],
-        "extrapolate": [
             {"from": "一个必填字段",
              "expand": ["缺失", "null", "空串", "纯空格", "类型错误"],
              "why": "SKILL.md：每个必填字段逐个测，不许一把全删只拿一个 400"},
             {"from": "一个数值字段",
              "expand": ["min-1", "min", "max", "max+1", "非整数", "bool 冒充 int"],
              "why": "测试矩阵 P1：参数边界逐字段"},
-            {"from": "一条正例",
-             "expand": ["负例（4xx 且 DB 无写）", "幂等重放", "并发重放"],
-             "why": "负例不允许写库；重复提交要幂等或验证真实后果"},
             {"from": "一个 P0 风险点（金额/权限/超发/状态机/事务/幂等/跨租户/泄露）",
              "expand": DEFECT_CLASSES,
              "why": "P0 覆盖清单 = 10 类缺陷注入"},
@@ -132,11 +119,9 @@ ENTRY_GROUPS = [
         "id": "execute",
         "title": "环境与执行",
         "subtitle": "服务起不来≠只做静态；能真跑的一律真跑",
-        "when": "要跑用例 / 要连 DB / 要注入故障时",
-        "first_call": "prepare_environment {base_url|sut, db, tables}",
-        "tools": ["prepare_environment", "provision_environment", "seed_database", "run_case",
-                  "run_suite", "run_schema_tests", "run_scenario_tests",
-                  "run_concurrency_tests", "run_failure_injection"],
+        "when": "要连 DB / 起服务 / 跑用例 / 注入故障 / 扫 SQL 时",
+        "first_call": "prepare_verification {env:{base_url|sut, db, tables}}",
+        "tools": ["prepare_verification", "run_verification"],
         "extrapolate": [
             {"from": "一条普通正例跑通了",
              "expand": ["并发：剩余 1 + 并发 10 → 不许超发", "幂等：重复提交", "DB 终态双断言"],
@@ -149,62 +134,29 @@ ENTRY_GROUPS = [
              "why": "SKILL.md 步骤 2：没有 DB 就不许声称 DB 断言通过"},
             {"from": "空库上跑 SQL 很快",
              "expand": ["先 seed 贴近生产的量", "再计时", "否则判定为假快"],
-             "why": "sql_perf_check：空库上的「快」不算"},
-        ],
-    },
-    {
-        "id": "static",
-        "title": "静态与 SQL 巡检",
-        "subtitle": "巡检有发现 ≠ FAIL；没执行 final_gate 照样 NOT_TESTED",
-        "when": "改了代码还没部署 / 服务起不来 / 想先扫一遍 SQL",
-        "first_call": "static_precheck {schema_sql, statements}",
-        "tools": ["static_precheck", "sql_perf_check"],
-        "extrapolate": [
+             "why": "run_verification 的 perf 开关：空库上的「快」不算"},
             {"from": "静态抓到 INSERT 列数错位",
              "expand": ["报「巡检发现 N 个问题 + 尚未执行」", "不许当成 FAIL 结论", "补执行用例才算闭环"],
-             "why": "静态预检不产生判定"},
-            {"from": "发现一条慢 SQL",
-             "expand": ["附 EXPLAIN 进证据", "给 compare_sql 替代写法", "先验结果集一致再比速度"],
-             "why": "结果集不一致 → data_mismatch，禁止替换"},
-            {"from": "静态全绿",
-             "expand": ["并发超发", "幂等窗口", "keep-alive 脏连接", "故障注入行为"],
-             "why": "这些静态抓不到，必须真跑；不许声称「静态测过了」"},
+             "why": "precheck 开关不产生判定；没执行 final_gate 照样 NOT_TESTED"},
         ],
     },
     {
         "id": "gate",
-        "title": "回归与门禁",
-        "subtitle": "修了 bug 就留锚；未执行不得放行",
-        "when": "跑完一轮要出结论 / 修完缺陷要固化时",
-        "first_call": "run_regression {project_id}",
-        "tools": ["run_regression", "add_regression_case", "get_coverage", "get_failures",
-                  "get_evidence", "final_gate", "run_pipeline"],
+        "title": "门禁与收尾",
+        "subtitle": "修了 bug 就留锚；未执行不得放行；PASS 回滚 / FAIL 冻结",
+        "when": "跑完一轮要出结论 / 失败要复现 / 修完缺陷要固化 / 收尾时",
+        "first_call": "final_gate {}",
+        "tools": ["replay_failure", "final_gate", "cleanup"],
         "extrapolate": [
             {"from": "修好一个缺陷",
-             "expand": ["add_regression_case 永久留锚", "标 priority", "写清 source=缺陷描述"],
+             "expand": ["run_verification 的 add_regression 永久留锚", "标 priority", "写清 source=缺陷描述"],
              "why": "SKILL.md：修了 bug → 生成 Regression Case 永久保留"},
             {"from": "一轮跑完要放行",
-             "expand": ["final_gate（未执行→NOT_TESTED）", "get_coverage 只当遗漏探测器", "get_failures 逐条要证据"],
-             "why": "覆盖率是遗漏探测器，不是正确性证明"},
-            {"from": "只测了一条链路",
-             "expand": ["run_pipeline 一键全链", "从分析到报告不重复复制订单号"],
-             "why": "对标全链路模式：一笔事故顺着查到底"},
-        ],
-    },
-    {
-        "id": "handoff",
-        "title": "资产与交接",
-        "subtitle": "分析默认是草稿，人工审过才入库",
-        "when": "任务要交给别人 / 要接别人的任务 / 收尾时",
-        "first_call": "export_handoff {task_id}",
-        "tools": ["intake_task", "export_handoff", "cleanup"],
-        "extrapolate": [
-            {"from": "要交给下游",
-             "expand": ["export_handoff 出四件套", "失败也出 bundle", "证据不可省"],
-             "why": "TM8：四件套导出 + 失败 bundle"},
-            {"from": "接了别人的任务包",
-             "expand": ["intake_task 先验 schema", "契约 hash 对齐", "隔离 consumer_root"],
-             "why": "跨仓 TaskBundle 需要信封与隔离"},
+             "expand": ["final_gate（未执行→NOT_TESTED）", "coverage 只当遗漏探测器", "failures 逐条要证据"],
+             "why": "覆盖率是遗漏探测器，不是正确性证明；四件套随 final_gate 自动导出"},
+            {"from": "有个 case 挂了",
+             "expand": ["replay_failure 按 case_id 重跑单 case + 证据", "cleanup FAIL 时冻结现场不清理"],
+             "why": "§17：PASS 回滚，FAIL 保留数据供排查/重放"},
             {"from": "跑完一轮",
              "expand": ["cleanup 回收进程树与临时容器", "别留悬空 mysqld/容器"],
              "why": "幂等收尾，防止残留进程锁文件"},
@@ -214,14 +166,14 @@ ENTRY_GROUPS = [
 
 # 面向「模糊需求」的入口路由表：给一句自然语言，指到最合适的入口
 ROUTING_HINTS = [
-    {"pattern": "支付/订单/金额 对不上、状态停在某处", "entry": "change", "next": "design", "note": "先看影响面，再补状态机与事务用例"},
-    {"pattern": "改了代码/发了版，测过没", "entry": "change", "next": "gate", "note": "analyze_change → run_regression"},
-    {"pattern": "接口报 500 / 返回不对", "entry": "execute", "next": "gate", "note": "prepare_environment → run_case → get_failures"},
-    {"pattern": "SQL 慢 / 加了索引没", "entry": "static", "next": "gate", "note": "sql_perf_check（先 seed 贴近生产的量）"},
-    {"pattern": "并发/重复提交会不会超发", "entry": "execute", "next": "gate", "note": "run_concurrency_tests（剩余 1 + 并发 10）"},
-    {"pattern": "下游挂了会怎样", "entry": "execute", "next": "gate", "note": "run_failure_injection（ok 对照组必须有）"},
-    {"pattern": "需求没写清 / 文档和代码打架", "entry": "facts", "next": "design", "note": "CONFLICT 不许自选，拉 source 让 owner 拍板"},
-    {"pattern": "要交给别人 / 接别人的活", "entry": "handoff", "next": "change", "note": "intake_task / export_handoff"},
+    {"pattern": "支付/订单/金额 对不上、状态停在某处", "entry": "change", "next": "plan", "note": "先看影响面，再补状态机与事务用例"},
+    {"pattern": "改了代码/发了版，测过没", "entry": "change", "next": "gate", "note": "analyze_impact → run_verification（regression）"},
+    {"pattern": "接口报 500 / 返回不对", "entry": "execute", "next": "gate", "note": "prepare_verification → run_verification → final_gate"},
+    {"pattern": "SQL 慢 / 加了索引没", "entry": "execute", "next": "gate", "note": "run_verification 的 perf 开关（先 seed 贴近生产的量）"},
+    {"pattern": "并发/重复提交会不会超发", "entry": "execute", "next": "gate", "note": "run_verification 的 concurrency 开关（剩余 1 + 并发 10）"},
+    {"pattern": "下游挂了会怎样", "entry": "execute", "next": "gate", "note": "run_verification 的 failure 开关（ok 对照组必须有）"},
+    {"pattern": "需求没写清 / 文档和代码打架", "entry": "plan", "next": "execute", "note": "CONFLICT 不许自选，拉 source 让 owner 拍板"},
+    {"pattern": "要交给别人 / 接别人的活", "entry": "plan", "next": "gate", "note": "plan_verification 投喂 task_bundle，final_gate 自动导出四件套"},
 ]
 
 

@@ -3,11 +3,11 @@ name: testmind
 on:
   push:
     paths:
-      - "test-Mind/**"
+      - "test-mind/**"
       - "shared/scripts/peak-gate-lib.mjs"
   pull_request:
     paths:
-      - "test-Mind/**"
+      - "test-mind/**"
 
 jobs:
   test:
@@ -19,7 +19,7 @@ jobs:
         python-version: ["3.11", "3.12"]
     defaults:
       run:
-        working-directory: test-Mind
+        working-directory: test-mind
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
