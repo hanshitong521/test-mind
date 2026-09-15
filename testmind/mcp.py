@@ -21,7 +21,8 @@ FACADES = {
                                        "ask": "{question,why,impact,options}", "answer": "{qid,answer}",
                                        "rules": "[{rule_id,name,resource,predicate,applies_to,surfaces}]",
                                        "scenario": "{roles,states,times,entry_points,operations,history_cases,actor_evidence:{label:SELECT_SQL}}",
-                                       "oracle": "{endpoints,spec,actors,rules}——§11/§12 跨接口一致性+变形测试"}},
+                                       "oracle": "{endpoints,spec,actors,rules}——§11/§12 跨接口一致性+变形测试",
+                                       "handoff_id": "DH-xxx 从 DevTest Hub 拉 contract.sections 转 facts（只读 contract；hints 禁入 facts/expected）"}},
     "prepare_verification":  {"desc": "[门面] 备环境：连接/起服务/DB/代理/KV(Redis) + 可选容器 provision/seed 台账/DataTruth data_plan",
                               "args": {"env": "{}（含 kv:{kind:memory|redis,args:{host,port,password,db}}）", "seed": "[sql]", "provision": "{}", "data_plan": "{requirements,ownership,template}"}},
     "run_verification":      {"desc": "[门面] 执行验证：跑计划/回归/并发/故障注入/契约/场景 runner + 可选 precheck/perf（advisory 输出）",
@@ -227,6 +228,45 @@ def _do_export_handoff(a):
     rep["evidence_manifest_hash"] = manifest.get("manifest_hash", "")
     paths = export.write_four_piece(task_dir, rep, S.results, S.plan, S.facts.snapshot(), S.ev.dir)
     return envelope("PASS", "artifacts exported", artifacts=list(paths.values()), task_id=tid)
+
+
+def _handoff_endpoint():
+    """DevTest Hub 地址/项目：env 优先，缺省与本地看板一致。"""
+    return (os.environ.get("VERIFY_HANDOFF_BASE_URL", "http://127.0.0.1:18787").strip(),
+            os.environ.get("VERIFY_HANDOFF_PROJECT_ID", "shejiuPro").strip() or "shejiuPro")
+
+
+def _load_handoff_contract(handoff_id):
+    """spec §VerifyMind 改动：plan_verification{handoff_id} → GET /api/handoffs/{id}
+    → 只把 contract.sections 转成 facts。hints 由 handoff_client 三道机制隔离，
+    拿不到就不用，绝不进 facts / expected / 断言。"""
+    from scripts.handoff_client import HandoffClient, contract_facts
+
+    base_url, project_id = _handoff_endpoint()
+    handoff = HandoffClient(base_url, project_id=project_id).fetch_handoff(handoff_id)
+    return contract_facts(handoff, handoff_id=handoff_id)
+
+
+def _submit_handoff_run(gate_final, endpoint_coverage):
+    if os.environ.get("VERIFY_HANDOFF_CALLBACK") != "1":
+        return None
+    handoff_id = os.environ.get("VERIFY_HANDOFF_ID", "").strip()
+    if not handoff_id:
+        return {"status": "SKIPPED", "reason": "VERIFY_HANDOFF_ID is not set"}
+    from scripts.handoff_client import HandoffClient, build_run_summary
+
+    base_url = os.environ.get("VERIFY_HANDOFF_BASE_URL", "http://127.0.0.1:18787")
+    project_id = os.environ.get("VERIFY_HANDOFF_PROJECT_ID", "shejiuPro")
+    run = build_run_summary(
+        S.ev.run_id if S.ev else "",
+        gate_final,
+        S.ev.dir if S.ev else "",
+        S.results,
+        S.plan,
+        endpoint_coverage=endpoint_coverage,
+        root=core.ROOT,
+    )
+    return HandoffClient(base_url, project_id=project_id).submit_run(handoff_id, run)
 
 
 def _do_scan_java(a):
@@ -697,6 +737,19 @@ def dispatch(name, a):
             steps.append(("intake", r["status"]))
             if r["status"] == "BLOCKED":
                 return r
+        # DevTest Hub：handoff_id → 只吃 contract.sections（hints 禁入 facts，AC-2/AC-3）
+        if a.get("handoff_id"):
+            try:
+                hf = _load_handoff_contract(a["handoff_id"])
+            except Exception as exc:
+                return envelope("BLOCKED", f"handoff {a['handoff_id']} 取不到契约: {exc!r}",
+                                next_actions=["确认 Hub 在跑、handoff_id 与 project_id 正确"])
+            if not hf:
+                return envelope("BLOCKED", f"handoff {a['handoff_id']} contract.sections 全空 — 无契约不建 plan",
+                                next_actions=["让开发 AI PATCH contract §0–§9 后再 submit"])
+            for item in hf:
+                S.facts.add_raw(item)
+            steps.append(("handoff_facts", len(hf)))
         fact_args = {k: a[k] for k in ("schema_sql", "openapi") if a.get(k)}
         if fact_args:
             r = _do_collect_facts(fact_args)
@@ -869,8 +922,9 @@ def dispatch(name, a):
             runners["schemathesis"] = S.schema.get("status", "NOT_RUN")
         req = ["schemathesis"] if (S.require_schema or a.get("require_schema")) else []
         st, why = core.Gate.evaluate(S.results, S.facts.questions, S.facts.conflicts(),
-                                     floor=core.risk_floor(S.facts, S.hooks),
-                                     runner_states=runners, required_runners=req)
+                                      floor=core.risk_floor(S.facts, S.hooks),
+                                      runner_states=runners, required_runners=req,
+                                      plan=S.plan)
         if st == "PASS" and S.schema and S.schema["status"] == "FAIL":
             st, why = "FAIL", "schemathesis findings unexplained（见 schema-tests-summary.txt）"   # §25 失败必须回分析
         # §29 接口覆盖台账：未覆盖写端点 / 无端点全集 → PASS 降 HOLD，杜绝"漏 8 个还报全 PASS"
@@ -912,13 +966,20 @@ def dispatch(name, a):
                 exported = _do_export_handoff({})
             except Exception:
                 pass
+        handoff = None
+        if st in ("PASS", "FAIL", "HOLD", "BLOCKED"):
+            try:
+                handoff = _submit_handoff_run(st, ep_ledger)
+            except Exception as exc:
+                handoff = {"status": "ERROR", "error": repr(exc)}
         return envelope(st, why, evidence=[S.ev.dir] if S.ev else [],
                         quality={"total": q.total, "verdict": q.verdict, "blocking": q.blocking},
                         coverage=_coverage_matrix(), endpoint_coverage=ep_ledger,
                         writes_without_side_effect_assertion=no_ev_writes,
                         failures=_failure_list(), triage=S.triage,
                         artifacts=(exported or {}).get("artifacts", []),
-                        evidence_manifest_hash=meta.get("evidence_manifest_hash", ""))
+                        evidence_manifest_hash=meta.get("evidence_manifest_hash", ""),
+                        handoff=handoff)
     if name == "cleanup":
         # V10 §17 数据生命周期：PASS → Ledger 逆序回滚 + 重查询证明 DB==before；
         # FAIL → 冻结现场 incident.json，保留数据不清理（供排查/重放）。

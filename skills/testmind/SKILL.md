@@ -102,3 +102,15 @@ version: 1.1.0
 - 不为覆盖率写无意义测试
 - 覆盖率是遗漏探测器，不是正确性证明
 - 故障注入/安全测试只在 local/test 环境
+
+## DevTest Hub 接入
+1. 取契约：`GET http://127.0.0.1:18787/api/handoffs/{id}` → 只用 `contract` 建 plan
+2. `hints` 区块：只读背景，**禁止**写入 expected / 断言 / PASS 依据（违规则 TEST_DEFECT 自审）
+3. claim → 跑管道 → `final_gate` 后 `POST .../verify-run` + `POST .../bugs`（FAIL 项）
+4. 评论：对不清楚的口径 `POST .../comments`，等开发 AI 回复后再冻结 plan
+5. **BUG 对抗**：开发方 `dispute` 后，测试方须 `resolve` 或 `rebuttal`；承认误报用 `accept_not_bug` + 证据，禁止口头关单
+6. 开发方「只是有疑问」→ `kind=question`，**不要**改代码冒充已修
+7. **扩面**：`analyze_impact` 差集先 `POST /work-items`，未跑过的接口禁止直接 `/bugs`
+8. 声明面绿、扩面未关 → `HOLD`，禁止全 PASS
+
+MCP 入口：`plan_verification {handoff_id}` 内部即走第 1 条，只把 `contract.sections` 转成 facts（source 形如 `handoff:DH-xxx:contract.sections.3_api`）；`hints` 由 handoff_client 物理摘除 + 出口校验，进不了 facts。

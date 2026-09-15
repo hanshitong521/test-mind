@@ -36,6 +36,7 @@ SCHEMAS = {
             "rules": _ARR,
             "scenario": {"type": "object"},
             "oracle": {"type": "object"},
+            "handoff_id": _STR,
         },
     },
     "prepare_verification": {

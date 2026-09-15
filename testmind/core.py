@@ -1167,6 +1167,83 @@ def _kv_watch_keys(exp, kv):
     return sorted(set(keys)) or None
 
 
+L3_REQUIRED_FIELDS = ("case_id", "layer", "preconditions", "steps", "assertions",
+                      "evidence_requirements", "source")
+L3_STORE_TYPES = {"db", "database", "mysql", "sqlite", "redis", "kv"}
+
+
+def is_l3_case(case):
+    """L3/brandHandle 用例才启用严格字段；旧 case 保持原有契约。"""
+    return (str(case.get("layer", "")).upper() == "L3"
+            or "brandHandle" in case or "brand_handle" in case
+            or str(case.get("category", "")).lower() == "brandhandle")
+
+
+def validate_l3_case(case):
+    """返回 L3 case 的 schema 错误列表；非 L3 case 返回空列表。"""
+    if not is_l3_case(case):
+        return []
+    errors = [f"missing:{k}" for k in L3_REQUIRED_FIELDS if k not in case]
+    if "case_id" in case and (not isinstance(case["case_id"], str) or not case["case_id"].strip()):
+        errors.append("case_id must be a non-empty string")
+    if case.get("layer") != "L3":
+        errors.append("layer must be L3")
+    for key in ("preconditions", "steps", "assertions", "evidence_requirements"):
+        if key in case and not isinstance(case[key], list):
+            errors.append(f"{key} must be a list")
+    if "source" in case and not isinstance(case["source"], str):
+        errors.append("source must be a string")
+    for key in ("preconditions", "steps", "assertions", "evidence_requirements"):
+        if key in case and isinstance(case[key], list) and not case[key]:
+            errors.append(f"{key} must not be empty")
+    if "source" in case and not str(case.get("source", "")).strip():
+        errors.append("source must not be empty")
+    return errors
+
+
+def _l3_case_id(case):
+    return case.get("case_id") or case.get("id")
+
+
+def _walk_values(value):
+    if isinstance(value, dict):
+        for k, v in value.items():
+            yield str(k).lower(), v
+            yield from _walk_values(v)
+    elif isinstance(value, list):
+        for v in value:
+            yield from _walk_values(v)
+    elif isinstance(value, str):
+        yield "", value.lower()
+
+
+def _l3_store_declarations(case):
+    found = set()
+    for key, value in _walk_values(case.get("assertions", [])):
+        token = str(value).lower() if key in ("type", "kind", "store", "backend") else key
+        if token in L3_STORE_TYPES:
+            found.add("redis" if token in ("redis", "kv") else "db")
+    exp = case.get("expected", {})
+    if any(exp.get(k) for k in DB_ASSERTIONS):
+        found.add("db")
+    if any(exp.get(k) for k in KV_ASSERTIONS):
+        found.add("redis")
+    return found
+
+
+def _l3_unmet_preconditions(case):
+    unmet = []
+    for i, p in enumerate(case.get("preconditions", [])):
+        if isinstance(p, dict):
+            if p.get("satisfied") is False or str(p.get("status", "")).upper() in {
+                    "BLOCKED", "UNAVAILABLE", "NOT_READY", "MISSING"}:
+                unmet.append(p.get("id") or p.get("name") or f"precondition[{i}]")
+        elif p is False or (isinstance(p, str) and p.strip().upper() in {
+                "BLOCKED", "UNAVAILABLE", "NOT_READY", "MISSING"}):
+            unmet.append(f"precondition[{i}]")
+    return unmet
+
+
 def executable_assertions(case, has_db, has_kv=False):
     """返回 (真正执行的断言, 因缺库无法执行的断言)。零可执行断言 = 这个 case 什么都没验，不许它变绿。"""
     a = case.get("action") or {}
@@ -1226,11 +1303,29 @@ class Engine:
             return -1, {"error": repr(e)}
 
     def run(self, case, snapshot=True):
+        case = dict(case)
+        if is_l3_case(case):
+            case.setdefault("id", case.get("case_id", "L3-INVALID"))
+        case.setdefault("id", case.get("case_id", "case-unknown"))
+        l3_errors = validate_l3_case(case)
         ctx, detail, ok, err = {}, {}, False, None
         before = after = diff = {}
         kv_before = kv_after = kv_diff = {}
         delta = None
         phase = "setup"
+        if l3_errors:
+            detail["l3_schema_errors"] = l3_errors
+            cid = re.sub(r'[^A-Za-z0-9._=\\[\\]-]', "_", case["id"])
+            self.ev.write(f"cases/{cid}/request.json", case)
+            self.ev.write(f"cases/{cid}/response.json", detail)
+            r = {"id": case["id"], "case_id": case.get("case_id", case["id"]),
+                 "layer": case.get("layer"), "source": case.get("source"),
+                 "priority": case.get("priority", "P1"), "status": "NOT_TESTED",
+                 "store_declarations": sorted(_l3_store_declarations(case)),
+                 "evidence": f"cases/{cid}/", "evidence_refs": [f"cases/{cid}/request.json",
+                 f"cases/{cid}/response.json"], "assertions": [], "detail": detail}
+            self.ev.write(f"cases/{cid}/result.json", r)
+            return r
         take = bool(self.db) and snapshot
         kv_take = bool(self.kv) and snapshot and any(
             k in case.get("expected", {}) for k in KV_ASSERTIONS)
@@ -1282,6 +1377,9 @@ class Engine:
             detail["untested_assertions"] = untested
         if err:
             status, detail["exception"] = "TOOL_ERROR", err        # 我们的管线坏了 ≠ SUT 坏了，也不许冒充通过
+        elif is_l3_case(case) and _l3_unmet_preconditions(case):
+            status = "BLOCKED"
+            detail["unmet_preconditions"] = _l3_unmet_preconditions(case)
         elif take is False and any(k in case.get("expected", {}) for k in DB_ASSERTIONS):
             status = "NOT_TESTED"                                  # 跳过快照的批不该带库断言，带了就认栽
             detail["db_snapshot_required"] = True
@@ -1308,8 +1406,63 @@ class Engine:
             self.ev.write(f"cases/{cid}/kv-before.json", kv_before)
             self.ev.write(f"cases/{cid}/kv-after.json", kv_after)
             self.ev.write(f"cases/{cid}/kv-diff.json", kv_diff)
-        r = {"id": case["id"], "priority": case.get("priority", "P1"),
-             "status": status, "evidence": f"cases/{cid}/", "assertions": ran, "detail": detail}
+        evidence_refs = [f"cases/{cid}/request.json", f"cases/{cid}/response.json"]
+        if take:
+            evidence_refs += [f"cases/{cid}/db-before.json", f"cases/{cid}/db-after.json",
+                              f"cases/{cid}/db-diff.json"]
+        if kv_take:
+            evidence_refs += [f"cases/{cid}/kv-before.json", f"cases/{cid}/kv-after.json",
+                              f"cases/{cid}/kv-diff.json"]
+        if is_l3_case(case) and status == "PASS":
+            strict_errors = []
+            strict_blocked = False
+            if not str(case.get("source", "")).strip():
+                strict_errors.append("source required")
+            if not case.get("assertions") or not ran:
+                strict_errors.append("assertions must be declared and executed")
+            if not detail.get("http") and not any(k.startswith("step") for k in detail):
+                strict_errors.append("request/response evidence required")
+            if not evidence_refs or not all(os.path.exists(os.path.join(self.ev.dir, x)) for x in evidence_refs):
+                strict_errors.append("traceable evidence refs required")
+            for store in _l3_store_declarations(case):
+                if store == "db":
+                    if not self.db:
+                        strict_blocked = True
+                        strict_errors.append("DB declaration requires connection, assertion, and diff evidence")
+                    elif not take or not any(case.get("expected", {}).get(k) for k in DB_ASSERTIONS):
+                        strict_errors.append("DB declaration requires connection, assertion, and diff evidence")
+                    elif not all(os.path.exists(os.path.join(self.ev.dir, f"cases/{cid}/{x}"))
+                                 for x in ("db-before.json", "db-after.json", "db-diff.json")):
+                        strict_errors.append("DB diff evidence missing")
+                if store == "redis":
+                    if not self.kv:
+                        strict_blocked = True
+                        strict_errors.append("Redis declaration requires connection, assertion, and diff evidence")
+                    elif not kv_take or not any(case.get("expected", {}).get(k) for k in KV_ASSERTIONS):
+                        strict_errors.append("Redis declaration requires connection, assertion, and diff evidence")
+                    elif not all(os.path.exists(os.path.join(self.ev.dir, f"cases/{cid}/{x}"))
+                                 for x in ("kv-before.json", "kv-after.json", "kv-diff.json")):
+                        strict_errors.append("Redis diff evidence missing")
+            required = case.get("evidence_requirements", [])
+            aliases = {"request": "request.json", "response": "response.json", "db": "db-diff.json",
+                       "database": "db-diff.json", "redis": "kv-diff.json", "kv": "kv-diff.json"}
+            missing = []
+            for req in required:
+                name = req if isinstance(req, str) else req.get("path") or req.get("kind")
+                rel = aliases.get(str(name).lower(), name)
+                if not rel or not os.path.exists(os.path.join(self.ev.dir, f"cases/{cid}/{rel}")):
+                    missing.append(name)
+            if missing:
+                strict_errors.append(f"evidence requirements missing: {missing}")
+            if strict_errors:
+                status = "BLOCKED" if strict_blocked else "NOT_TESTED"
+                detail["l3_gate_errors"] = strict_errors
+        r = {"id": case["id"], "case_id": case.get("case_id", case["id"]),
+             "layer": case.get("layer"), "source": case.get("source"),
+             "priority": case.get("priority", "P1"), "status": status,
+             "store_declarations": sorted(_l3_store_declarations(case)) if is_l3_case(case) else [],
+             "evidence": f"cases/{cid}/", "evidence_refs": evidence_refs,
+             "assertions": ran, "detail": detail}
         self.ev.write(f"cases/{cid}/result.json", r)
         return r
 
@@ -1489,9 +1642,10 @@ class Evidence:
 
 class Gate:
     @staticmethod
-    def evaluate(results, unknowns, conflicts, floor=(), runner_states=None, required_runners=()):
+    def evaluate(results, unknowns, conflicts, floor=(), runner_states=None, required_runners=(), plan=()):
         """地板：只要有一条 case 什么都没验，整体终判就不是 PASS。
-        required_runners 中 SKIPPED/UNAVAILABLE → NOT_TESTED（不许假绿）。"""
+        required_runners 中 SKIPPED/UNAVAILABLE → NOT_TESTED（不许假绿）。
+        plan 用于逐条核对；缺 result 的计划 case 不得被已执行结果掩盖。"""
         runner_states = runner_states or {}
         for name in required_runners or ():
             st = runner_states.get(name, "NOT_RUN")
@@ -1503,9 +1657,34 @@ class Gate:
             return "BLOCKED", f"conflicts: {len(conflicts)}"
         if not results:
             return "NOT_TESTED", "no executed case"            # §4.2 没跑就是没跑
+        result_ids = {r.get("case_id") or r.get("id") for r in results}
+        planned_ids = {_l3_case_id(c) for c in (plan or []) if _l3_case_id(c)}
+        missing_plan = sorted(planned_ids - result_ids)
+        if missing_plan:
+            return "NOT_TESTED", f"planned cases not executed: {missing_plan}"
+        invalid_plan = [_l3_case_id(c) for c in (plan or []) if validate_l3_case(c)]
+        if invalid_plan:
+            return "NOT_TESTED", f"invalid L3 case schema: {invalid_plan}"
         no_ev = [r["id"] for r in results if r["status"] == "PASS" and not r.get("evidence")]
         if no_ev:
             return "FAIL", f"PASS without evidence: {no_ev}"   # §4.3
+        strict_missing = []
+        for r in results:
+            if str(r.get("layer", "")).upper() != "L3" or r.get("status") != "PASS":
+                continue
+            refs = set(r.get("evidence_refs") or ())
+            if not r.get("source") or not r.get("assertions"):
+                strict_missing.append(r["id"] + ":source/assertions")
+            if not any(x.endswith("request.json") for x in refs) or not any(x.endswith("response.json") for x in refs):
+                strict_missing.append(r["id"] + ":request/response evidence")
+            if "db" in (r.get("store_declarations") or ()) and not any(x.endswith("db-diff.json") for x in refs):
+                strict_missing.append(r["id"] + ":DB diff evidence")
+            if "redis" in (r.get("store_declarations") or ()) and not any(x.endswith("kv-diff.json") for x in refs):
+                strict_missing.append(r["id"] + ":Redis diff evidence")
+            if r.get("detail", {}).get("l3_gate_errors"):
+                strict_missing.append(r["id"] + ":strict evidence gate")
+        if strict_missing:
+            return "NOT_TESTED", f"L3 evidence gate not satisfied: {strict_missing}"
         broken = [r["id"] for r in results if r["status"] == "TOOL_ERROR"]
         if broken:
             return "TOOL_ERROR", f"harness broke, verdict invalid: {broken}"
