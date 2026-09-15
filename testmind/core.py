@@ -1179,10 +1179,31 @@ def is_l3_case(case):
             or str(case.get("category", "")).lower() == "brandhandle")
 
 
+def validate_governance_case_fields(case):
+    """DEC-DT-003 治理字段：empty_is_valid / actor_matrix（可选，有则校验）。"""
+    errors: list[str] = []
+    if case.get("empty_is_valid") is True:
+        src = case.get("empty_is_valid_source") or case.get("source") or ""
+        if not str(src).strip():
+            errors.append("empty_is_valid:true 须附 empty_is_valid_source 或 source")
+    if "actor_matrix" in case and case["actor_matrix"] is not None:
+        am = case["actor_matrix"]
+        if isinstance(am, list):
+            if not am:
+                errors.append("actor_matrix 不能为空列表")
+        elif isinstance(am, dict):
+            if not am:
+                errors.append("actor_matrix 不能为空对象")
+        else:
+            errors.append("actor_matrix 须为 list 或 dict")
+    return errors
+
+
 def validate_l3_case(case):
     """返回 L3 case 的 schema 错误列表；非 L3 case 返回空列表。"""
+    gov = validate_governance_case_fields(case)
     if not is_l3_case(case):
-        return []
+        return gov
     errors = [f"missing:{k}" for k in L3_REQUIRED_FIELDS if k not in case]
     if "case_id" in case and (not isinstance(case["case_id"], str) or not case["case_id"].strip()):
         errors.append("case_id must be a non-empty string")
@@ -1198,6 +1219,7 @@ def validate_l3_case(case):
             errors.append(f"{key} must not be empty")
     if "source" in case and not str(case.get("source", "")).strip():
         errors.append("source must not be empty")
+    errors.extend(gov)
     return errors
 
 

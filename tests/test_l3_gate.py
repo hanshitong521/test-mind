@@ -42,6 +42,16 @@ class TestL3Gate(unittest.TestCase):
         del broken["source"]
         self.assertIn("missing:source", core.validate_l3_case(broken))
 
+    def test_empty_is_valid_requires_source(self):
+        bad = self.case(empty_is_valid=True)
+        bad.pop("source", None)
+        errs = core.validate_l3_case(bad)
+        self.assertTrue(any("empty_is_valid" in e for e in errs))
+
+    def test_actor_matrix_must_be_nonempty(self):
+        bad = self.case(actor_matrix=[])
+        self.assertIn("actor_matrix 不能为空列表", core.validate_l3_case(bad))
+
     def test_missing_case_from_plan_is_not_tested(self):
         result = {"id": "BH-1", "case_id": "BH-1", "status": "PASS", "evidence": "cases/BH-1/"}
         status, why = core.Gate.evaluate([result], [], [], plan=[self.case(), self.case(case_id="BH-2")])
